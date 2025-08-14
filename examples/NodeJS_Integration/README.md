@@ -35,25 +35,75 @@ Example Arduino sketch:
 
 ```cpp
 #include "Packet_Device.h"
+#include "BluetoothSerial.h"
 
-DevicePacket<char, MAX_COMMAND_DEFAULT_LEN> packet(&Serial);
+#define MAX_COMMAND_LEN 128
+typedef DevicePacket<char, MAX_COMMAND_LEN> PacketProtocol;
+
+PacketProtocol* device_packet = nullptr;
+
+TaskHandle_t systemReceivingTask = nullptr;
+
+#define SENSOR_NUMBERS 5
+
+float sensor_data[SENSOR_NUMBERS] = { 10.0, 20.0, 30.0, 40.0, 50.0 };
+
+// Data transfer definition between DSP and HOST
+struct LockInInfo {
+  float amplitude;
+  float phase;
+};
+
+// Callback: Update lock-in info
+void updateLockInfoX(LockInInfo* info) {
+  device_packet->restOut("amplitude", info->amplitude);
+}
+
+// Callback: Check version
+void checkVersion() {
+  device_packet->restOutStr("version", "Packet Device");
+}
+
+// Data receiving thread
+void systemReceivingProcess(void* parameter) {
+  while (true) {
+    // Read incoming commands
+    device_packet->readSerialCommand();
+    vTaskDelay(pdMS_TO_TICKS(20));  // 20 ms delay
+  }
+
+  // If loop breaks, clean up task
+  vTaskDelete(nullptr);
+}
 
 void setup() {
   Serial.begin(115200);
 
-  packet.onReceive("VNR", []() {
-    packet.restOutStr("version", "1.0.0");
-  });
+  // Create PacketProtocol object with delimiters
+  device_packet = new PacketProtocol(&Serial, { '\r', '\n' });
 
-  packet.onReceive("ULX", [](float *data, uint8_t len) {
-    Serial.printf("Received amplitude: %.2f, phase: %.2f\n", data[0], data[1]);
-  });
+  // Register command callbacks
+  device_packet->onReceive("VNR", checkVersion);
+  device_packet->onReceive<LockInInfo>("ULX", updateLockInfoX); // Raw mode
+
+  // Create data processing thread
+  xTaskCreatePinnedToCore(
+    systemReceivingProcess,   // Task function
+    "recv",                   // Task name
+    10000,                    // Stack size in bytes
+    nullptr,                  // Task input parameter
+    2,                        // Priority
+    &systemReceivingTask,     // Task handle
+    0                         // Core ID
+  );
 }
 
 void loop() {
-  packet.readSerialCommand();
-  packet.processingQueueCommands();
+  device_packet->processingQueueCommands();
+  device_packet->restArrayOut<float>("env", sensor_data, SENSOR_NUMBERS);
+  delay(500);
 }
+
 ```
 
 ---
