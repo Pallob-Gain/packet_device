@@ -1,7 +1,7 @@
 #include "BluetoothSerial.h"
 
-#include "../../src/device_packet.h"
-#include "../../src/device_packet.cpp"
+#include "../../src/Packet_Device.h"
+#include "../../src/Packet_Device.cpp"
 
 #define MAX_COMMAND_LEN 128
 typedef DevicePacket<char, MAX_COMMAND_LEN> PacketPortocol;
@@ -29,7 +29,7 @@ void updateLockInfoX(lockInInfo *info) {
 void checkVersion(){
   //device_packet->restOutStr("test", "testing");
   //device_packet->restOutStr("test1", "testing");
-  device_packet->restOutStr("version", "packet data v1.0.4");
+  device_packet->restOutStr("version", "packet data v1.0.5");
 }
 
 //data thread
