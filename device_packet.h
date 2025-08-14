@@ -1,3 +1,39 @@
+/*
+ *  Packet_Device Library
+ *  ---------------------
+ *  Description:
+ *    Packet_Device is a lightweight, event-driven communication protocol 
+ *    built on top of Arduino's Stream interface. It provides a secure, 
+ *    packet-based layer for transferring raw bytes between two devices 
+ *    over any underlying transport supported by the Stream API 
+ *    (e.g., UART, SPI, I²C/Wire, etc.).
+ *
+ *    Conceptually, it follows a layered design: the Stream interface 
+ *    operates as the transport layer, while Packet_Device functions 
+ *    as the application protocol layer, handling packet framing, 
+ *    data integrity, and event-driven dispatch.
+ *
+ *  Features:
+ *    - Works over any Stream-compatible transport (UART, SPI, I²C, etc.)
+ *    - Secure, packetized byte-level communication
+ *    - Event-based architecture for handling incoming data efficiently
+ *    - Direct mapping of incoming data to any memory location or pointer
+ *    - Easy transmission of arrays, pointers, or raw structures
+ *    - Flexible enough for both command/control and bulk data transfer
+ *
+ *  Use Case:
+ *    Ideal for connecting two devices over various physical interfaces 
+ *    with a unified packet protocol, without rewriting the communication 
+ *    logic for each transport.
+ *
+ *  Author: Pallob K. Gain <pallobkgain@gmail.com>
+ *  License: MIT
+ *  Repository: https://github.com/Pallob-Gain/packet_device
+ *  Created: 2 Feb, 2025
+ *  Modified: 21 Apr, 2025
+ */
+
+
 #ifndef __DEVICE_PACKET__
 #define __DEVICE_PACKET__
 
