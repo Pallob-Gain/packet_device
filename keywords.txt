@@ -29,8 +29,8 @@ restOutFloat	KEYWORD2
 restOutInt	KEYWORD2
 restOutHex	KEYWORD2
 restOutBin	KEYWORD2
-resetOutSuccess	KEYWORD2
-resetOutError	KEYWORD2
+restOutSuccess	KEYWORD2
+restOutError	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

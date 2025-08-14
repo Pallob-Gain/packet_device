@@ -30,7 +30,7 @@
  *  License: MIT
  *  Repository: https://github.com/Pallob-Gain/packet_device
  *  Created: 2 Feb, 2025
- *  Modified: 21 Apr, 2025
+ *  Modified: 14 Apr, 2025
  */
 
 
@@ -185,8 +185,8 @@ public:
   void restOutInt(String properties, int payload);
   void restOutHex(String properties, uint32_t payload);
   void restOutBin(String properties, uint32_t payload);
-  void resetOutSuccess(String payload);
-  void resetOutError(String err);
+  void restOutSuccess(String payload);
+  void restOutError(String err);
 };
 
 #include "./Packet_Device_t.h"

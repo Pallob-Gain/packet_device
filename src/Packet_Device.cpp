@@ -413,12 +413,12 @@ void DevicePacket<R, N>::restOutBin(String properties, uint32_t payload) {
 }
 
 template<typename R, uint16_t N>
-void DevicePacket<R, N>::resetOutSuccess(String payload) {
+void DevicePacket<R, N>::restOutSuccess(String payload) {
   restOutStr("payload", payload);
 }
 
 template<typename R, uint16_t N>
-void DevicePacket<R, N>::resetOutError(String err) {
+void DevicePacket<R, N>::restOutError(String err) {
   restOutStr("error", err);
 }
 
