@@ -1,0 +1,59 @@
+#######################################
+# Syntax Coloring Map For Packet_Device
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+DevicePacket	KEYWORD1
+Command_t	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+setReceiver	KEYWORD2
+onReceive	KEYWORD2
+readSerialCommand	KEYWORD2
+processingQueueCommands	KEYWORD2
+setDevicePort	KEYWORD2
+getBufferMode	KEYWORD2
+setBufferMode	KEYWORD2
+setAutoFlush	KEYWORD2
+flushDataPort	KEYWORD2
+writeToPort	KEYWORD2
+restRawOut	KEYWORD2
+restOut	KEYWORD2
+restArrayOut	KEYWORD2
+restOutStr	KEYWORD2
+restOutFloat	KEYWORD2
+restOutInt	KEYWORD2
+restOutHex	KEYWORD2
+restOutBin	KEYWORD2
+resetOutSuccess	KEYWORD2
+resetOutError	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+TRANSFER_DATA_BUFFER_SIG	LITERAL1
+BUFFER_TEXT_RESPNOSE	LITERAL1
+BUFFER_PARAM_RESPNOSE	LITERAL1
+BUFFER_ARRY_RESPNOSE	LITERAL1
+DATA_TYPE_UINT64_T	LITERAL1
+DATA_TYPE_INT64_T	LITERAL1
+DATA_TYPE_UINT32_T	LITERAL1
+DATA_TYPE_INT32_T	LITERAL1
+DATA_TYPE_UINT16_T	LITERAL1
+DATA_TYPE_INT16_T	LITERAL1
+DATA_TYPE_UINT8_T	LITERAL1
+DATA_TYPE_INT8_T	LITERAL1
+DATA_TYPE_INT	LITERAL1
+DATA_TYPE_UINT	LITERAL1
+DATA_TYPE_FLOAT	LITERAL1
+DATA_TYPE_DOUBLE	LITERAL1
+DATA_TYPE_LONG	LITERAL1
+DATA_TYPE_ULONG	LITERAL1
+DATA_TYPE_STRING	LITERAL1
+DATA_TYPE_BOOL	LITERAL1
+DATA_TYPE_NULL	LITERAL1
+DATA_TYPE_VOID	LITERAL1
