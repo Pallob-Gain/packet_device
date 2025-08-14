@@ -48,7 +48,7 @@ This will also install the required `serialport` dependency.
 This example sends structured data and responds to requests from a PC.
 
 ```cpp
-#include "device_packet.h"
+#include "Packet_Device.h"
 
 DevicePacket<char, MAX_COMMAND_DEFAULT_LEN> packet(&Serial);
 
