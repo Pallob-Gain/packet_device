@@ -29,7 +29,7 @@ void updateLockInfoX(lockInInfo *info) {
 void checkVersion(){
   //device_packet->restOutStr("test", "testing");
   //device_packet->restOutStr("test1", "testing");
-  device_packet->restOutStr("version", "packet data v4.0.0");
+  device_packet->restOutStr("version", "packet data v1.0.4");
 }
 
 //data thread
