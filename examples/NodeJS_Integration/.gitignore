@@ -1,0 +1,6 @@
+node_modules/
+
+# Ignore Windows desktop configuration files
+**/desktop.ini
+
+#git rm --cached -r **/desktop.ini

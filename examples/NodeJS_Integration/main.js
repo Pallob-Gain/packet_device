@@ -3,7 +3,7 @@ const {PacketDevice,Struct} = require('./lib/index.js');
 const { SerialPort } = require('serialport')
 
 
-const PORT = 'COM3';
+const PORT = 'COM19';
 const BUADRATE = 115200;
 
 const lockInInfo=Struct.makeType({

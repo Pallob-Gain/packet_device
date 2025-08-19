@@ -1,0 +1,40 @@
+{
+    "configurations": [
+        {
+            "name": "Arduino-esp32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/**",
+                "C:/Users/pallo/Documents/Arduino/libraries/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/libraries/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2411/bin/xtensa-esp32-elf-g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/libraries/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
+                    "${workspaceRoot}/**"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            }
+        }
+    ],
+    "version": 4
+}

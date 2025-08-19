@@ -91,6 +91,7 @@ private:
   uint64_t packet_timeout_at = 0;  //packet receving timeout
 
   R *delimeters;
+  bool bulk_read_enabled=false;
 
   size_t delimeter_len = 0;
 
@@ -142,8 +143,11 @@ public:
     delete &insert_pram_data_cmnds, &insert_data_cmnds, &get_pram_cmnds, &get_process_cmnds, &get_response_buff, &any_response_buff;
     delete[] delimeters;
     delete &delimeter_len;
+    delete &bulk_read_enabled;
   }
 
+
+  void enableBulkRead(bool state);
 
   void setReceiver(std::map<String, void (*)(String, String)> receivers);
   void setReceiver(std::map<String, void (*)(String)> receivers, bool prams = false);
