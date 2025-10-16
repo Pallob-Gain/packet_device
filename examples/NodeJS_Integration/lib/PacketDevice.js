@@ -499,6 +499,14 @@ module.exports = class PacketDevice {
     }
 
     dataReceiveHandel(err, data) {
+        //that function will call when data received and it will receive every of the packets separately one by one
+        for(let cb of this.onDataCb){
+            if(cb(err, data)===true){
+                //if that is block of flow then return here not processing any other 
+                return;
+            }
+        }
+        
         while (this.dataReceiverHolder.length > 0) {
             let callback = this.dataReceiverHolder.shift();
             if (callback(err, data) === true) {
@@ -506,11 +514,7 @@ module.exports = class PacketDevice {
                 return;
             }
         }
-        //TODO
-        for(let cb of this.onDataCb){
-            cb(err, data);
-        }
-        
+
     }
 
     dataReceiver(buff) {
@@ -577,7 +581,7 @@ module.exports = class PacketDevice {
             return PacketDevice.jsonParse(data);
         }
         catch (err) {
-            throw new Error("Data parsing error because -> " + data);
+            throw new Error("Data parsing error because: " + data);
         }
     }
 
@@ -588,8 +592,52 @@ module.exports = class PacketDevice {
         }
         catch (err) {
             //console.log('Parse Error:',err);
-            throw new Error("Data parsing error because -> " + data);
+            throw new Error("Data parsing error because: " + data);
         }
+    }
+
+    findUntill(checker_callback, timeout = 1500) {
+        if(typeof checker_callback !='function')throw new Error('Invalid checker callback!');
+        return new Promise((accept,reject)=>{
+
+            let result_cb=(err,result)=>{
+                clearTimeout(timeout_handeler);
+                this.removeOnData(cb);
+                
+                if(err)reject(err);
+                else accept(result);
+
+                return true; //block flow
+            }
+
+            let cb = (err, data) => {
+                //console.log('extra receiver');
+                if (err) return reject(err);
+                
+                try{
+                    let parsed_data = PacketDevice.dataParse(data);
+
+                    try{
+                        let check_result=checker_callback(parsed_data);
+                        if(check_result) return result_cb(null,check_result);
+                    }
+                    catch(err){
+                        //if the checker callback have error then return that error
+                        return result_cb(err);
+                    }
+                }
+                catch(err){
+                    //no error handel here for parsing error
+                }
+            };
+
+            let timeout_handeler = setTimeout(() => {
+                this.removeOnData(cb);
+                reject(new Error(`No valid response within ${timeout}ms.`));
+            }, timeout);
+
+            this.onData(cb);
+        });
     }
 
     waitUntillFound(valid_data, timeout = 1500) {
