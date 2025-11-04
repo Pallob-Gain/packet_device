@@ -28,22 +28,12 @@ template<typename R, uint16_t N>
 template<typename T>
 uint16_t DevicePacket<R, N>::bufferCrcCalculate(T *data, uint16_t len) {
   //CRC-16 (CCITT-FALSE)
-  uint16_t crc = 0;
-
-  for (uint16_t i = 0; i < len; i++) {
-    T val = data[i];
-    // Serial.print(val,HEX);
-    crc = crc ^ (val << 8);
-
-    for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
-      else crc = crc << 1;
+  uint16_t crc = 0; // initial value (XorOut=0x0000)
+    for (uint16_t i = 0; i < len; ++i) {
+        uint8_t idx = (uint8_t)((crc >> 8) ^ data[i]);
+        crc = (uint16_t)((crc << 8) ^ crc16_ccitt_tbl[idx]);
     }
-  }
-
-  // Serial.println();
-
-  return crc;
+    return crc;
 }
 
 template<typename R, uint16_t N>

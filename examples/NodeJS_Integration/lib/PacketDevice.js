@@ -1,5 +1,6 @@
 const Struct = require('./struct.V4.js');
 const DataEndPusherExtractor = require('./DataEndPusherExtractor.V3.js');
+const {crc16Ccitt} = require('./crc-verification.js');
 
 const TRANSFER_DATA_BUFFER_SIG = 0x2A;
 
@@ -371,19 +372,7 @@ module.exports = class PacketDevice {
     }
 
     static getDataCrc(buff){
-        //CRC-16 (CCITT-FALSE) 
-        let crc = 0;
-        for (let i = 0; i < buff.length; i++) {
-            let val = buff[i] & 0xFF;
-            crc = crc ^ (val << 8);
-            for (let j = 0; j < 8; j++) {
-                if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
-                else crc = crc << 1;
-            }
-            crc = crc & 0xFFFF;
-        }
-
-        return crc & 0xFFFF;
+        return crc16Ccitt(buff);
     }
 
     static checkCrcValidity(buff) {
