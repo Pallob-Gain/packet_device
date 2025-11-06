@@ -220,9 +220,11 @@ void DevicePacket<R, N>::readSerialCommand()
 
   if (commpleted_cmd_read)
   {
+    this->receiver_lock();
     current_commands_length = 0; // it is restriction to write a variable from two different thread
     commpleted_cmd_read = false;
     packet_length = 0;
+    this->receiver_unlock();
   }
 
   if (current_commands_length >= max_command_queue_length)
@@ -230,13 +232,15 @@ void DevicePacket<R, N>::readSerialCommand()
 
   if (packet_timeout_at != 0 && packet_length != 0 && millis() > packet_timeout_at)
   {
+
     Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
 
+    this->receiver_lock();
     // Serial.println("timeout:"+String(cmd->len)+",t:"+String( millis()-packet_timeout_at));
-
     cmd->len = 0;
     packet_length = 0;     // reset packet receiveing
     packet_timeout_at = 0; // reset the time checker, and
+    this->receiver_unlock();
   }
 
   if (bulk_read_enabled)
@@ -261,6 +265,7 @@ void DevicePacket<R, N>::readSerialCommand()
 
         Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
 
+        this->receiver_lock();
         // store data
         cmd->data[cmd->len] = inchar;
         cmd->len++;
@@ -269,6 +274,7 @@ void DevicePacket<R, N>::readSerialCommand()
         {
           cmd->len = 0;
         }
+        this->receiver_unlock();
 
         if (packet_length != 0)
         {
@@ -282,8 +288,11 @@ void DevicePacket<R, N>::readSerialCommand()
             // packet is ready for process
             packet_timeout_at = 0; // reset timeout
 
+            this->receiver_lock();
             cmd->completed = true;     // mark it as completed
             current_commands_length++; // store for the next
+            this->receiver_unlock();
+
             if (current_commands_length >= max_command_queue_length)
               break; // if the queue if full then not process any more receive
           }
@@ -301,7 +310,10 @@ void DevicePacket<R, N>::readSerialCommand()
             if (packet_size != 0)
             {
               // valid match
+              this->receiver_lock();
               cmd->len = 0; // reset buffer index for making ready to receive actual buffer
+              this->receiver_unlock();
+
               if (packet_size < N)
               {
                 // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
@@ -319,6 +331,7 @@ void DevicePacket<R, N>::readSerialCommand()
             size_t offset = cmd->len - delimeter_len;
             // if data match for deliemter
             // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
+            this->receiver_lock();
             if (memcmp(cmd->data + offset, delimeters, delimeter_len) == 0)
             {
               // reset the packet receive
@@ -328,8 +341,12 @@ void DevicePacket<R, N>::readSerialCommand()
               cmd->completed = true;
               current_commands_length++; // store for the next
               if (current_commands_length >= max_command_queue_length)
+              {
+                this->receiver_unlock();
                 break; // if the queue if full then not process any more receive
+              }
             }
+            this->receiver_unlock();
           }
         }
       }
@@ -346,6 +363,7 @@ void DevicePacket<R, N>::readSerialCommand()
       Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
 
       // store data
+      this->receiver_lock();
       cmd->data[cmd->len] = inchar;
       cmd->len++;
 
@@ -353,6 +371,7 @@ void DevicePacket<R, N>::readSerialCommand()
       {
         cmd->len = 0;
       }
+      this->receiver_unlock();
 
       if (packet_length != 0)
       {
@@ -366,8 +385,11 @@ void DevicePacket<R, N>::readSerialCommand()
           // packet is ready for process
           packet_timeout_at = 0; // reset timeout
 
+          this->receiver_lock();
           cmd->completed = true;     // mark it as completed
           current_commands_length++; // store for the next
+          this->receiver_unlock();
+
           if (current_commands_length >= max_command_queue_length)
             break; // if the queue if full then not process any more receive
         }
@@ -385,7 +407,10 @@ void DevicePacket<R, N>::readSerialCommand()
           if (packet_size != 0)
           {
             // valid match
+            this->receiver_lock();
             cmd->len = 0; // reset buffer index for making ready to receive actual buffer
+            this->receiver_unlock();
+
             if (packet_size < N)
             {
               // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
@@ -403,6 +428,7 @@ void DevicePacket<R, N>::readSerialCommand()
           size_t offset = cmd->len - delimeter_len;
           // if data match for deliemter
           // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
+          this->receiver_lock();
           if (memcmp(cmd->data + offset, delimeters, delimeter_len) == 0)
           {
             // reset the packet receive
@@ -412,8 +438,12 @@ void DevicePacket<R, N>::readSerialCommand()
             cmd->completed = true;
             current_commands_length++; // store for the next
             if (current_commands_length >= max_command_queue_length)
+            {
+              this->receiver_unlock();
               break; // if the queue if full then not process any more receive
+            }
           }
+          this->receiver_unlock();
         }
       }
     }
@@ -433,13 +463,19 @@ void DevicePacket<R, N>::processingQueueCommands()
       if (cmd->completed)
       {
         commandProcess(cmd->data, cmd->len); // process the command
+        this->receiver_lock();
         cmd->completed = false;
+        this->receiver_unlock();
       }
+      this->receiver_lock();
       // restore default: when writing to that it is ensure that other thread is not writing in this
       cmd->len = 0;
+      this->receiver_unlock();
     }
     // current_commands_length = 0;
+    this->receiver_lock();
     commpleted_cmd_read = true;
+    this->receiver_unlock();
   }
 }
 
@@ -470,8 +506,12 @@ void DevicePacket<R, N>::setAutoFlush(bool state)
 template <typename R, uint16_t N>
 void DevicePacket<R, N>::flushDataPort()
 {
-  if (serial_dev != nullptr)
-    serial_dev->flush();
+  if (serial_dev == nullptr)
+    return;
+  // thread safe flush
+  this->writer_lock();
+  serial_dev->flush();
+  this->writer_unlock();
 }
 
 template <typename R, uint16_t N>
@@ -479,25 +519,14 @@ bool DevicePacket<R, N>::writeToPort(uint8_t *buff, uint16_t size)
 {
   if (serial_dev == nullptr)
     return false;
-
-// thread safe write
-#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
-  // if already busy then wait untill free: nessary for RTOS
-  while (sending_process_busy)
-  {
-    taskYIELD(); // vTaskDelay(pdMS_TO_TICKS(1)); // delay for 1ms to not hog the process
-  }
-  // register flag as true
-  sending_process_busy = true;
-#endif
-
+    
+  // thread safe write
+  this->writer_lock();
   serial_dev->write(buff, size);
+  this->writer_unlock();
+
   if (auto_flush)
     flushDataPort();
-
-#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
-  sending_process_busy = false;
-#endif
   return true;
 }
 
@@ -623,6 +652,38 @@ template <typename R, uint16_t N>
 void DevicePacket<R, N>::restOutError(String err)
 {
   restOutStr("error", err);
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::writer_lock()
+{
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
+ xSemaphoreTake(this->writter_locker, portMAX_DELAY);
+#endif
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::writer_unlock()
+{
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
+  xSemaphoreGive(this->writter_locker);
+#endif
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::receiver_lock()
+{
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
+  xSemaphoreTake(this->receiver_locker, portMAX_DELAY);
+#endif
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::receiver_unlock()
+{
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
+  xSemaphoreGive(this->receiver_locker);
+#endif
 }
 
 // Explicit instantiation for specific types
