@@ -214,6 +214,8 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
 template <typename R, uint16_t N>
 void DevicePacket<R, N>::readSerialCommand()
 {
+  if (serial_dev == nullptr)
+    return;
   // command receiving from receiving thread
 
   if (commpleted_cmd_read)
@@ -468,18 +470,22 @@ void DevicePacket<R, N>::setAutoFlush(bool state)
 template <typename R, uint16_t N>
 void DevicePacket<R, N>::flushDataPort()
 {
-  serial_dev->flush();
+  if (serial_dev != nullptr)
+    serial_dev->flush();
 }
 
 template <typename R, uint16_t N>
 bool DevicePacket<R, N>::writeToPort(uint8_t *buff, uint16_t size)
 {
+  if (serial_dev == nullptr)
+    return false;
+
 // thread safe write
 #if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
   // if already busy then wait untill free: nessary for RTOS
   while (sending_process_busy)
   {
-    vTaskDelay(pdMS_TO_TICKS(1)); // delay for 1ms to not hog the process
+    taskYIELD(); // vTaskDelay(pdMS_TO_TICKS(1)); // delay for 1ms to not hog the process
   }
   // register flag as true
   sending_process_busy = true;
