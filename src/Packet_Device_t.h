@@ -26,7 +26,7 @@ void DevicePacket<R, N>::onReceive(String name, std::function<void(T *, uint8_t)
 // Template function
 template<typename R, uint16_t N>
 template<typename T>
-uint16_t DevicePacket<R, N>::bufferCrcCalculate(T *data, uint16_t len) {
+uint16_t DevicePacket<R, N>::getCRC(T *data, uint16_t len) {
   //CRC-16 (CCITT-FALSE)
   uint16_t crc = 0; // initial value (XorOut=0x0000)
     for (uint16_t i = 0; i < len; ++i) {
@@ -38,10 +38,10 @@ uint16_t DevicePacket<R, N>::bufferCrcCalculate(T *data, uint16_t len) {
 
 template<typename R, uint16_t N>
 template<typename T>
-bool DevicePacket<R, N>::crcCheck(T *data, uint16_t len) {
+bool DevicePacket<R, N>::verifyCRC(T *data, uint16_t len) {
   if (len <= 2) return false;
   uint16_t offset = len - 2;
-  uint16_t crc = bufferCrcCalculate<T>(data, offset);
+  uint16_t crc = getCRC<T>(data, offset);
 
   //Serial.println(String(crc,HEX)+" "+String(crc >> 8,HEX)+" "+String(crc & 0xFF,HEX));
   //Serial.println(String(data[offset],HEX)+" "+String(data[offset+1],HEX));

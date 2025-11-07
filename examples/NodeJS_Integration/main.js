@@ -3,7 +3,7 @@ const {PacketDevice,Struct} = require('./lib/index.js');
 const { SerialPort } = require('serialport')
 
 
-const PORT = 'COM19';
+const PORT = process.env.PORT?.trim() ||'COM6';
 const BUADRATE = 115200;
 
 const lockInInfo=Struct.makeType({
@@ -37,7 +37,7 @@ const main = async () => {
 	let find = list.find(item => item.path == PORT);
 
 	if (!find) {
-		console.log(`Communication port: ${PORT} is not available!`);
+		console.log(`Communication port: ${PORT} is not available at: `, list.map(i => i.path));
 		return;
 	}
 

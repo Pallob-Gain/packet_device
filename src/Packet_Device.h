@@ -133,16 +133,18 @@ private:
 
   void commandProcess(R *data, uint16_t len);
 
-  template <typename T>
-  static uint16_t bufferCrcCalculate(T *data, uint16_t len);
-
-  template <typename T>
-  static bool crcCheck(T *data, uint16_t len);
-
   uint16_t getPacketLength(uint8_t *transfer_buff);
   void updatePacketLength(uint8_t *transfer_buff, uint16_t packet_size);
   void dataOutToSerial(uint8_t *buff, uint16_t size);
   void dataOutToSerial(String str);
+
+  void writer_lock();
+  void writer_unlock();
+  void receiver_lock();
+  void receiver_unlock();
+
+  bool queueCheck();
+  bool processEachData(R inchar);
 
 public:
   template <size_t D>
@@ -201,6 +203,12 @@ public:
     delete &bulk_read_enabled;
   }
 
+  template <typename T>
+  static uint16_t getCRC(T *data, uint16_t len);
+
+  template <typename T>
+  static bool verifyCRC(T *data, uint16_t len);
+
   void enableBulkRead(bool state);
 
   void setReceiver(std::map<String, void (*)(String, String)> receivers);
@@ -217,6 +225,7 @@ public:
   template <typename T>
   void onReceive(String name, std::function<void(T *, uint8_t)> fun);
 
+  void feedBytes(R *all_bytes, size_t len);
   void readSerialCommand();
   void processingQueueCommands();
 
@@ -244,11 +253,6 @@ public:
   void restOutBin(String properties, uint32_t payload);
   void restOutSuccess(String payload);
   void restOutError(String err);
-
-  void writer_lock();
-  void writer_unlock();
-  void receiver_lock();
-  void receiver_unlock();
 };
 
 #include "./Packet_Device_t.h"

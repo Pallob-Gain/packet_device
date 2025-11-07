@@ -71,7 +71,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
 
   if (len >= 5 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
   { // with crc
-    if (crcCheck<uint8_t>((uint8_t *)data, len))
+    if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
       uint8_t data_len = data[2];
@@ -89,7 +89,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
   else if (len >= 7 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
   {
     // Serial.println("Prams:"+String(len)+",type:"+String((uint8_t)data[4]));
-    if (crcCheck<uint8_t>((uint8_t *)data, len))
+    if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
       uint8_t data_type = data[2];
@@ -124,7 +124,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
   else if (len >= 8 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
   {
     // Serial.println("Array:"+String(len));
-    if (crcCheck<uint8_t>((uint8_t *)data, len))
+    if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
       uint8_t data_type = data[2];
@@ -212,12 +212,8 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
 }
 
 template <typename R, uint16_t N>
-void DevicePacket<R, N>::readSerialCommand()
+bool DevicePacket<R, N>::queueCheck()
 {
-  if (serial_dev == nullptr)
-    return;
-  // command receiving from receiving thread
-
   if (commpleted_cmd_read)
   {
     this->receiver_lock();
@@ -227,9 +223,11 @@ void DevicePacket<R, N>::readSerialCommand()
     this->receiver_unlock();
   }
 
+  // if the queue is full then we will not process any receving buffer untill the queue read
   if (current_commands_length >= max_command_queue_length)
-    return; // if the queue is full then we will not process any receving buffer untill the queue read
+    return false;
 
+  // full packet receive timeout check
   if (packet_timeout_at != 0 && packet_length != 0 && millis() > packet_timeout_at)
   {
 
@@ -242,6 +240,131 @@ void DevicePacket<R, N>::readSerialCommand()
     packet_timeout_at = 0; // reset the time checker, and
     this->receiver_unlock();
   }
+
+  return true;
+}
+
+template <typename R, uint16_t N>
+bool DevicePacket<R, N>::processEachData(R inchar)
+{
+  // Serial.println(inchar,HEX);
+
+  Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
+
+  // store data
+  this->receiver_lock();
+  cmd->data[cmd->len] = inchar;
+  cmd->len++;
+
+  if (cmd->len >= N)
+  {
+    cmd->len = 0;
+  }
+  this->receiver_unlock();
+
+  if (packet_length != 0)
+  {
+    // packet receiving mode
+    if (cmd->len == packet_length)
+    {
+      // Serial.println("Data:"+String(cmd->data[0],HEX));
+
+      // reset the packet receive
+      packet_length = 0;
+      // packet is ready for process
+      packet_timeout_at = 0; // reset timeout
+
+      this->receiver_lock();
+      cmd->completed = true;     // mark it as completed
+      current_commands_length++; // store for the next
+      this->receiver_unlock();
+
+      if (current_commands_length >= max_command_queue_length)
+      {
+        return false; // if the queue if full then not process any more receive
+      }
+    }
+  }
+  else
+  {
+    // non macket mode
+    if (cmd->len >= PACKET_SIGNETURE_LEN)
+    {
+      size_t offset = cmd->len - PACKET_SIGNETURE_LEN;
+
+      // Serial.println("offset:"+String(offset)+",len:"+String(cmd->len)+",l:"+String(PACKET_SIGNETURE_LEN));
+      uint16_t packet_size = getPacketLength((uint8_t *)(cmd->data + offset));
+
+      if (packet_size != 0)
+      {
+        // valid match
+        this->receiver_lock();
+        cmd->len = 0; // reset buffer index for making ready to receive actual buffer
+        this->receiver_unlock();
+
+        if (packet_size < N)
+        {
+          // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
+          // packet size is valid
+          packet_length = packet_size; // update packet size
+          // register current time to register timeout of receving data
+          packet_timeout_at = millis() + (packet_size * 2) + 100;
+          // minimum baud rate could 4800bps that mean 600bytes for second, considering 2ms for each of byte, and some extra delay (100ms)
+        }
+
+        return true; // no more process until next byte receive
+      }
+    }
+
+    if (cmd->len >= delimeter_len)
+    {
+      size_t offset = cmd->len - delimeter_len;
+      // if data match for deliemter
+      // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
+
+      if (memcmp(cmd->data + offset, delimeters, delimeter_len) == 0)
+      {
+        this->receiver_lock();
+        // reset the packet receive
+        packet_length = 0;
+
+        cmd->len = offset; // orginal data length
+        cmd->completed = true;
+        current_commands_length++; // store for the next
+        this->receiver_unlock();
+
+        if (current_commands_length >= max_command_queue_length)
+        {
+          return false; // if the queue if full then not process any more receive
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::feedBytes(R *all_bytes, size_t len)
+{
+  if (!this->queueCheck())
+    return;
+
+  for (size_t x = 0; x < len; x++)
+  {
+    if (!this->processEachData(all_bytes[x]))
+      break; // if the queue if full then not process any more receive
+  }
+}
+
+template <typename R, uint16_t N>
+void DevicePacket<R, N>::readSerialCommand()
+{
+  if (serial_dev == nullptr)
+    return;
+  // command receiving from receiving thread
+  if (!this->queueCheck())
+    return;
 
   if (bulk_read_enabled)
   {
@@ -259,96 +382,8 @@ void DevicePacket<R, N>::readSerialCommand()
 
       for (size_t x = 0; x < working_bytes; x++)
       {
-        R inchar = (R)all_bytes[x];
-
-        // Serial.println(inchar,HEX);
-
-        Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
-
-        this->receiver_lock();
-        // store data
-        cmd->data[cmd->len] = inchar;
-        cmd->len++;
-
-        if (cmd->len >= N)
-        {
-          cmd->len = 0;
-        }
-        this->receiver_unlock();
-
-        if (packet_length != 0)
-        {
-          // packet receiving mode
-          if (cmd->len == packet_length)
-          {
-            // Serial.println("Data:"+String(cmd->data[0],HEX));
-
-            // reset the packet receive
-            packet_length = 0;
-            // packet is ready for process
-            packet_timeout_at = 0; // reset timeout
-
-            this->receiver_lock();
-            cmd->completed = true;     // mark it as completed
-            current_commands_length++; // store for the next
-            this->receiver_unlock();
-
-            if (current_commands_length >= max_command_queue_length)
-              break; // if the queue if full then not process any more receive
-          }
-        }
-        else
-        {
-          // non macket mode
-          if (cmd->len >= PACKET_SIGNETURE_LEN)
-          {
-            size_t offset = cmd->len - PACKET_SIGNETURE_LEN;
-
-            // Serial.println("offset:"+String(offset)+",len:"+String(cmd->len)+",l:"+String(PACKET_SIGNETURE_LEN));
-            uint16_t packet_size = getPacketLength((uint8_t *)(cmd->data + offset));
-
-            if (packet_size != 0)
-            {
-              // valid match
-              this->receiver_lock();
-              cmd->len = 0; // reset buffer index for making ready to receive actual buffer
-              this->receiver_unlock();
-
-              if (packet_size < N)
-              {
-                // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
-                // packet size is valid
-                packet_length = packet_size; // update packet size
-                // register current time to register timeout of receving data
-                packet_timeout_at = millis() + (packet_size * 2) + 100; // minimum baud rate could 4800bps that mean 600bytes for second, considering 2ms for each of byte, and some extra delay (100ms)
-              }
-              continue; // process from next
-            }
-          }
-
-          if (cmd->len >= delimeter_len)
-          {
-            size_t offset = cmd->len - delimeter_len;
-            // if data match for deliemter
-            // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
-            this->receiver_lock();
-            if (memcmp(cmd->data + offset, delimeters, delimeter_len) == 0)
-            {
-              // reset the packet receive
-              packet_length = 0;
-
-              cmd->len = offset; // orginal data length
-              cmd->completed = true;
-              current_commands_length++; // store for the next
-              if (current_commands_length >= max_command_queue_length)
-              {
-                this->receiver_unlock();
-                break; // if the queue if full then not process any more receive
-              }
-            }
-            this->receiver_unlock();
-          }
-        }
+        if (!this->processEachData((R)all_bytes[x]))
+          break; // if the queue if full then not process any more receive
       }
     }
   }
@@ -356,96 +391,8 @@ void DevicePacket<R, N>::readSerialCommand()
   {
     while (serial_dev->available())
     {
-      R inchar = serial_dev->read();
-
-      // Serial.println(inchar,HEX);
-
-      Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
-
-      // store data
-      this->receiver_lock();
-      cmd->data[cmd->len] = inchar;
-      cmd->len++;
-
-      if (cmd->len >= N)
-      {
-        cmd->len = 0;
-      }
-      this->receiver_unlock();
-
-      if (packet_length != 0)
-      {
-        // packet receiving mode
-        if (cmd->len == packet_length)
-        {
-          // Serial.println("Data:"+String(cmd->data[0],HEX));
-
-          // reset the packet receive
-          packet_length = 0;
-          // packet is ready for process
-          packet_timeout_at = 0; // reset timeout
-
-          this->receiver_lock();
-          cmd->completed = true;     // mark it as completed
-          current_commands_length++; // store for the next
-          this->receiver_unlock();
-
-          if (current_commands_length >= max_command_queue_length)
-            break; // if the queue if full then not process any more receive
-        }
-      }
-      else
-      {
-        // non macket mode
-        if (cmd->len >= PACKET_SIGNETURE_LEN)
-        {
-          size_t offset = cmd->len - PACKET_SIGNETURE_LEN;
-
-          // Serial.println("offset:"+String(offset)+",len:"+String(cmd->len)+",l:"+String(PACKET_SIGNETURE_LEN));
-          uint16_t packet_size = getPacketLength((uint8_t *)(cmd->data + offset));
-
-          if (packet_size != 0)
-          {
-            // valid match
-            this->receiver_lock();
-            cmd->len = 0; // reset buffer index for making ready to receive actual buffer
-            this->receiver_unlock();
-
-            if (packet_size < N)
-            {
-              // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
-              // packet size is valid
-              packet_length = packet_size; // update packet size
-              // register current time to register timeout of receving data
-              packet_timeout_at = millis() + (packet_size * 2) + 100; // minimum baud rate could 4800bps that mean 600bytes for second, considering 2ms for each of byte, and some extra delay (100ms)
-            }
-            continue; // process from next
-          }
-        }
-
-        if (cmd->len >= delimeter_len)
-        {
-          size_t offset = cmd->len - delimeter_len;
-          // if data match for deliemter
-          // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
-          this->receiver_lock();
-          if (memcmp(cmd->data + offset, delimeters, delimeter_len) == 0)
-          {
-            // reset the packet receive
-            packet_length = 0;
-
-            cmd->len = offset; // orginal data length
-            cmd->completed = true;
-            current_commands_length++; // store for the next
-            if (current_commands_length >= max_command_queue_length)
-            {
-              this->receiver_unlock();
-              break; // if the queue if full then not process any more receive
-            }
-          }
-          this->receiver_unlock();
-        }
-      }
+      if (!this->processEachData(serial_dev->read()))
+        break; // if the queue if full then not process any more receive
     }
   }
   // Serial.println();
@@ -519,7 +466,7 @@ bool DevicePacket<R, N>::writeToPort(uint8_t *buff, uint16_t size)
 {
   if (serial_dev == nullptr)
     return false;
-    
+
   // thread safe write
   this->writer_lock();
   serial_dev->write(buff, size);
@@ -574,7 +521,7 @@ void DevicePacket<R, N>::updatePacketLength(uint8_t *transfer_buff, uint16_t pac
 template <typename R, uint16_t N>
 void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size)
 {
-  uint16_t crc = bufferCrcCalculate<uint8_t>(buff, size);
+  uint16_t crc = getCRC<uint8_t>(buff, size);
   uint8_t crc_bytes[CRC_BYTE_LEN] = {(uint8_t)(crc >> 8), (uint8_t)crc};
   uint16_t packet_size = size + CRC_BYTE_LEN;
 
@@ -658,7 +605,7 @@ template <typename R, uint16_t N>
 void DevicePacket<R, N>::writer_lock()
 {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ESP32) || defined(FREERTOS) || defined(configUSE_PREEMPTION)
- xSemaphoreTake(this->writter_locker, portMAX_DELAY);
+  xSemaphoreTake(this->writter_locker, portMAX_DELAY);
 #endif
 }
 

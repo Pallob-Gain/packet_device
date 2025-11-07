@@ -51,7 +51,7 @@ void setup() {
   Serial.begin(115200);  //start Seria
 
   device_packet = new PacketPortocol(&Serial, { '\r', '\n' });  //delimeter passed (it only nessary for the non raw transfer, raw byte are transmit with packet info)
-
+  //device_packet->enableBulkRead(true); //if bulk read mode is enabled
 
   device_packet->onReceive("VNR", checkVersion);
   //set on receive function
