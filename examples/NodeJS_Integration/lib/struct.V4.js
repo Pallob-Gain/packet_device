@@ -114,6 +114,13 @@ class Struct {
                     child.setJson(value[name]);
                     this.set(name, child);
                 }
+                else if (Array.isArray(value[name]) && ('array_type' in this.struct.details[name] && this.struct.details[name].array_type && 'details' in this.struct.details[name].type)) {
+                    this.set(name, value[name].map(item => {
+                        let child = new Struct(this.struct.details[name].type);
+                        child.setJson(item);
+                        return child;
+                    }));
+                }
                 else {
                     this.set(name, value[name]);
                 }
@@ -127,7 +134,7 @@ class Struct {
         let result = {};
         for (let name in this.struct.details) {
             let value = this.get(name);
-            result[name] = value instanceof Struct ? value.getJson() : value;
+            result[name] = value instanceof Struct ? value.getJson() : (Array.isArray(value) ? value.map(item => item.getJson()) : value);
         }
         return result;
     }
@@ -143,57 +150,69 @@ class Struct {
             buff.copy(data_holder, info.offset, 0, Math.min(info.size, buff.length));
         }
         else if ('array_type' in info && info.array_type) {
-            let type_state = info.type.state;
-
-            switch (type_state) {
-                case CHAR:
-                case UCHAR:
-                    value = value;
-                    break;
-                case BYTE:
-                case BOOL:
-                case UINT8_T:
-                    value = Uint8Array.from(value).buffer;
-                    break;
-                case UINT16_T:
-                    value = Uint16Array.from(value).buffer;
-                    break;
-                case UINT32_T:
-                case UINT:
-                    value = Uint32Array.from(value).buffer;
-                    break;
-                case UINT64_T:
-                case ULONG:
-                    value = BigUint64Array.from(value).buffer;
-                    break;
-                case INT32_T:
-                case INT:
-                    value = Int32Array.from(value).buffer;
-                    break;
-                case FLOAT:
-                    value = Float32Array.from(value).buffer;
-                    break;
-                case DOUBLE:
-                    value = Float64Array.from(value).buffer;
-                    break;
-                case INT64_T:
-                case LONG:
-                    value = BigInt64Array.from(value).buffer;
-                    break;
-                case INT8_T:
-                    value = Int8Array.from(value).buffer;
-                    break;
-                case UINT16_T:
-                    value = Int16Array.from(value).buffer;
-                    break;
-                default:
-                    return false;
+            //if array of struct 
+            if ('details' in info.type && info.type.details) {
+                let array_length = info.length;
+                for (let idx = 0; idx < array_length; idx++) {
+                    let struct_instance = value[idx];
+                    if (!(struct_instance instanceof Struct)) return false;
+                    let offset = info.offset + idx * info.type.size;
+                    let buff = struct_instance.ref();
+                    buff.copy(data_holder, offset, 0, Math.min(info.type.size, buff.length));
+                }
             }
+            else {
+                let type_state = info.type.state;
 
-            let buff = Buffer.from(value);
-            //console.log('buff',buff,'Copy:',Math.min(info.size,buff.length));
-            buff.copy(data_holder, info.offset, 0, Math.min(info.size, buff.length));
+                switch (type_state) {
+                    case CHAR:
+                    case UCHAR:
+                        value = value;
+                        break;
+                    case BYTE:
+                    case BOOL:
+                    case UINT8_T:
+                        value = Uint8Array.from(value).buffer;
+                        break;
+                    case UINT16_T:
+                        value = Uint16Array.from(value).buffer;
+                        break;
+                    case UINT32_T:
+                    case UINT:
+                        value = Uint32Array.from(value).buffer;
+                        break;
+                    case UINT64_T:
+                    case ULONG:
+                        value = BigUint64Array.from(value).buffer;
+                        break;
+                    case INT32_T:
+                    case INT:
+                        value = Int32Array.from(value).buffer;
+                        break;
+                    case FLOAT:
+                        value = Float32Array.from(value).buffer;
+                        break;
+                    case DOUBLE:
+                        value = Float64Array.from(value).buffer;
+                        break;
+                    case INT64_T:
+                    case LONG:
+                        value = BigInt64Array.from(value).buffer;
+                        break;
+                    case INT8_T:
+                        value = Int8Array.from(value).buffer;
+                        break;
+                    case UINT16_T:
+                        value = Int16Array.from(value).buffer;
+                        break;
+                    default:
+                        return false;
+                }
 
+                let buff = Buffer.from(value);
+                //console.log('buff',buff,'Copy:',Math.min(info.size,buff.length));
+                buff.copy(data_holder, info.offset, 0, Math.min(info.size, buff.length));
+            }
         }
         else {
             let type_state = info.state;
@@ -256,62 +275,74 @@ class Struct {
         let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
         let value = null;
 
+        //if another struct
         if ('details' in info && info.details) {
             value = new Struct(info);
             value.collect(section_data);
         }
         else if ('array_type' in info && info.array_type) {
-            let type_state = info.type.state;
-
-            switch (type_state) {
-                case CHAR:
-                case UCHAR:
-                    value = Buffer.from(section_data);
-                    break;
-                case BYTE:
-                case BOOL:
-                case UINT8_T:
-                    value = new Uint8Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint8Array.BYTES_PER_ELEMENT);
-                    break;
-                case UINT16_T:
-                    value = new Uint16Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint16Array.BYTES_PER_ELEMENT);
-                    break;
-                case UINT32_T:
-                case UINT:
-                    value = new Uint32Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint32Array.BYTES_PER_ELEMENT);
-                    break;
-                case UINT64_T:
-                case ULONG:
-                    value = new BigUint64Array(section_data.buffer, section_data.byteOffset, section_data.length / BigUint64Array.BYTES_PER_ELEMENT);
-                    break;
-                case INT32_T:
-                case INT:
-                    value = new Int32Array(section_data.buffer, section_data.byteOffset, section_data.length / Int32Array.BYTES_PER_ELEMENT);
-                    break;
-                case FLOAT:
-                    value = new Float32Array(section_data.buffer, section_data.byteOffset, section_data.length / Float32Array.BYTES_PER_ELEMENT);
-                    break;
-                case DOUBLE:
-                    value = new Float64Array(section_data.buffer, section_data.byteOffset, section_data.length / Float64Array.BYTES_PER_ELEMENT);
-                    break;
-                case INT64_T:
-                case LONG:
-                    value = new BigInt64Array(section_data.buffer, section_data.byteOffset, section_data.length / BigInt64Array.BYTES_PER_ELEMENT);
-                    break;
-                case INT8_T:
-                    value = new Int8Array(section_data.buffer, section_data.byteOffset, section_data.length / Int8Array.BYTES_PER_ELEMENT);
-                    break;
-                case INT16_T:
-                    value = new Int16Array(section_data.buffer, section_data.byteOffset, section_data.length / Int16Array.BYTES_PER_ELEMENT);
-                    break;
-                default:
-                    value = null;
+            //if array of struct 
+            if ('details' in info.type && info.type.details) {
+                let array_length = info.length;
+                value = (new Array(array_length).fill(null)).map((_, idx) => {
+                    let struct_instance = new Struct(info.type);
+                    let offset = idx * info.type.size;
+                    struct_instance.collect(section_data, offset);
+                    return struct_instance;
+                });
             }
+            else {
+                let type_state = info.type.state;
 
-            if ('converter' in info && info.converter) {
-                value = info.converter(value);
+                switch (type_state) {
+                    case CHAR:
+                    case UCHAR:
+                        value = Buffer.from(section_data);
+                        break;
+                    case BYTE:
+                    case BOOL:
+                    case UINT8_T:
+                        value = new Uint8Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint8Array.BYTES_PER_ELEMENT);
+                        break;
+                    case UINT16_T:
+                        value = new Uint16Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint16Array.BYTES_PER_ELEMENT);
+                        break;
+                    case UINT32_T:
+                    case UINT:
+                        value = new Uint32Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint32Array.BYTES_PER_ELEMENT);
+                        break;
+                    case UINT64_T:
+                    case ULONG:
+                        value = new BigUint64Array(section_data.buffer, section_data.byteOffset, section_data.length / BigUint64Array.BYTES_PER_ELEMENT);
+                        break;
+                    case INT32_T:
+                    case INT:
+                        value = new Int32Array(section_data.buffer, section_data.byteOffset, section_data.length / Int32Array.BYTES_PER_ELEMENT);
+                        break;
+                    case FLOAT:
+                        value = new Float32Array(section_data.buffer, section_data.byteOffset, section_data.length / Float32Array.BYTES_PER_ELEMENT);
+                        break;
+                    case DOUBLE:
+                        value = new Float64Array(section_data.buffer, section_data.byteOffset, section_data.length / Float64Array.BYTES_PER_ELEMENT);
+                        break;
+                    case INT64_T:
+                    case LONG:
+                        value = new BigInt64Array(section_data.buffer, section_data.byteOffset, section_data.length / BigInt64Array.BYTES_PER_ELEMENT);
+                        break;
+                    case INT8_T:
+                        value = new Int8Array(section_data.buffer, section_data.byteOffset, section_data.length / Int8Array.BYTES_PER_ELEMENT);
+                        break;
+                    case INT16_T:
+                        value = new Int16Array(section_data.buffer, section_data.byteOffset, section_data.length / Int16Array.BYTES_PER_ELEMENT);
+                        break;
+                    default:
+                        value = null;
+                }
+
+                if ('converter' in info && info.converter) {
+                    value = info.converter(value);
+                }
             }
-
             //console.log('array check:',value);
         }
         else {

@@ -113,7 +113,7 @@ const type_conversion = {
     [DATA_TYPE_STRING]: (buff, size) => buff.toString(),
     [DATA_TYPE_BOOL]: (buff, size) => buff.readUInt8(0)!=0,
     [DATA_TYPE_NULL]: (buff, size) =>null,
-    [DATA_TYPE_VOID]: (buff, size) => buff.readUInt8(0),
+    [DATA_TYPE_VOID]: (buff, size) => buff.subarray(0, size),
 };
 
 // Function to get the type size
