@@ -225,6 +225,7 @@ public:
   template <typename T>
   void onReceive(String name, std::function<void(T *, uint8_t)> fun);
 
+  void processBytes(R *all_bytes, size_t len);
   void feedBytes(R *all_bytes, size_t len);
   void readSerialCommand();
   void processingQueueCommands();

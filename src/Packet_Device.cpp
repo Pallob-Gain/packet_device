@@ -247,7 +247,8 @@ bool DevicePacket<R, N>::queueCheck()
 template <typename R, uint16_t N>
 bool DevicePacket<R, N>::processEachData(R inchar)
 {
-  // Serial.println(inchar,HEX);
+  //TODO: remove debug print
+  //Serial.printf("%c: %d or %02X \r\n",inchar, inchar,inchar);
 
   Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
 
@@ -345,16 +346,30 @@ bool DevicePacket<R, N>::processEachData(R inchar)
 }
 
 template <typename R, uint16_t N>
+void DevicePacket<R, N>::processBytes(R *all_bytes, size_t len)
+{
+  for (size_t x = 0; x < len; x++)
+  {
+    if (current_commands_length >= max_command_queue_length){
+      //if the queue if full then not process any more receive untill the queue read
+      uint32_t start_time = (xTaskGetTickCount() * portTICK_PERIOD_MS);  // gives ms time used for timeout
+      //maximum wait for 1 second
+      while (this->queueCheck()==false && (xTaskGetTickCount() * portTICK_PERIOD_MS - start_time) < 1000)
+      {
+        //wait until queue has space
+        vTaskDelay(pdMS_TO_TICKS(10)); //wait for 10ms
+      }
+    }                           
+    this->processEachData(all_bytes[x]); // if the queue full it return false
+  }
+}
+
+template <typename R, uint16_t N>
 void DevicePacket<R, N>::feedBytes(R *all_bytes, size_t len)
 {
   if (!this->queueCheck())
     return;
-
-  for (size_t x = 0; x < len; x++)
-  {
-    if (!this->processEachData(all_bytes[x]))
-      break; // if the queue if full then not process any more receive
-  }
+  this->processBytes(all_bytes, len);
 }
 
 template <typename R, uint16_t N>
@@ -373,18 +388,14 @@ void DevicePacket<R, N>::readSerialCommand()
     {
       int avail = serial_dev->available();
       if (avail <= 0)
-        break;
+        break; // no more data
 
       size_t to_read = std::min((size_t)avail, (size_t)N);
 
-      uint8_t all_bytes[to_read];
+      R all_bytes[to_read];
       size_t working_bytes = serial_dev->readBytes((uint8_t *)all_bytes, to_read); // size_t HardwareSerial::read(uint8_t *buffer, size_t size)
 
-      for (size_t x = 0; x < working_bytes; x++)
-      {
-        if (!this->processEachData((R)all_bytes[x]))
-          break; // if the queue if full then not process any more receive
-      }
+      this->processBytes(all_bytes, working_bytes);
     }
   }
   else
