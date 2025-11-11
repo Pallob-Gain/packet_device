@@ -1,6 +1,6 @@
 const Struct = require('./struct.V4.js');
 const DataEndPusherExtractor = require('./DataEndPusherExtractor.V3.js');
-const {crc16Ccitt} = require('./crc-verification.js');
+const { crc16Ccitt } = require('./crc-verification.js');
 
 const TRANSFER_DATA_BUFFER_SIG = 0x2A;
 
@@ -27,7 +27,7 @@ const DATA_TYPE_LONG = 13;
 const DATA_TYPE_ULONG = 14;
 const DATA_TYPE_STRING = 15;
 const DATA_TYPE_BOOL = 16;
-const DATA_TYPE_NULL= 17;
+const DATA_TYPE_NULL = 17;
 const DATA_TYPE_VOID = 0;
 
 const STRUCT_EQUVALENT_TYPE = {
@@ -111,17 +111,17 @@ const type_conversion = {
     [DATA_TYPE_LONG]: (buff, size) => buff.readBigInt64LE(0),
     [DATA_TYPE_ULONG]: (buff, size) => buff.readBigUInt64LE(0),
     [DATA_TYPE_STRING]: (buff, size) => buff.toString(),
-    [DATA_TYPE_BOOL]: (buff, size) => buff.readUInt8(0)!=0,
-    [DATA_TYPE_NULL]: (buff, size) =>null,
+    [DATA_TYPE_BOOL]: (buff, size) => buff.readUInt8(0) != 0,
+    [DATA_TYPE_NULL]: (buff, size) => null,
     [DATA_TYPE_VOID]: (buff, size) => buff.subarray(0, size),
 };
 
 // Function to get the type size
-const getTypeSize=(typeId)=> {
+const getTypeSize = (typeId) => {
     return TYPE_SIZE_MAP.has(typeId) ? TYPE_SIZE_MAP.get(typeId) : null;
 }
 
-const getTypeIdExtended=(value)=> {
+const getTypeIdExtended = (value) => {
     if (value === null) return DATA_TYPE_NULL; // Null case
     if (value === undefined) return DATA_TYPE_VOID; // Undefined case
 
@@ -135,18 +135,20 @@ const getTypeIdExtended=(value)=> {
     return TYPE_MAP.has(jsType) ? TYPE_MAP.get(jsType)[0] : null;
 }
 
-const BufferTextResponseHeader=Struct.makeType({
+const BufferTextResponseHeader = Struct.makeType({
     signeture: Struct.type.byte,
     signeture_type: Struct.type.byte,
-    data_size: Struct.type.byte,
+    data_size_msb: Struct.type.byte,
+    data_size_lsb: Struct.type.byte,
 });
 
-const BufferParamResponseHeader= Struct.makeType({
+const BufferParamResponseHeader = Struct.makeType({
     signeture: Struct.type.byte,
     signeture_type: Struct.type.byte,
     data_type: Struct.type.byte,
     pram_len: Struct.type.byte,
-    data_size: Struct.type.byte,
+    data_size_msb: Struct.type.byte,
+    data_size_lsb: Struct.type.byte,
 });
 
 const BufferArrayResponseHeader = Struct.makeType({
@@ -155,32 +157,46 @@ const BufferArrayResponseHeader = Struct.makeType({
     data_type: Struct.type.byte,
     type_size: Struct.type.byte,
     pram_len: Struct.type.byte,
-    data_size: Struct.type.byte,
+    data_size_msb: Struct.type.byte,
+    data_size_lsb: Struct.type.byte,
 });
+
+///buff_signeture(1 byte)+data_signeture(1 byte) +data_len(2 bytes)
+const TRANSFER_DATA_TEXT_HEADER_LEN = Struct.sizeOf(BufferTextResponseHeader);
+
+//buff_signeture(1 byte)+data_signeture(1 byte)+data_type(1 byte)+pram_len(1 bytes)+data_len(2 bytes)
+const TRANSFER_DATA_PARAMS_HEADER_LEN = Struct.sizeOf(BufferParamResponseHeader);
+
+//buff_signeture(1 byte)+data_signeture(1 byte)+type(1 bytes)+type_size(1 bytes)+pram_len(1 bytes)+data_size(2 bytes)
+const TRANSFER_DATA_ARRAY_HEADER_LEN = Struct.sizeOf(BufferArrayResponseHeader);
 
 const buffer_response_parsing = {
     [BUFFER_TEXT_RESPNOSE]: {
         parse: (buff) => {
             //buff_signeture(1 byte)+data_signeture(1 byte)+data_len(1 bytes)+data_buff(data_len bytes)
-            if (buff.length < 3) throw new Error('Invalid data length!');
-            let data_len = buff[2];
-            if (buff.length < data_len + 3) throw new Error('Data is not sufficient in length!');
-            return buff.subarray(3, 3 + data_len).toString();
+            if (buff.length < TRANSFER_DATA_TEXT_HEADER_LEN) throw new Error('Invalid data length!');
+            let data_len_msb = buff[2];
+            let data_len_lsb = buff[3];
+            let data_len = ((data_len_msb << 8) | data_len_lsb) & 0xFFFF;
+            if (buff.length < data_len + TRANSFER_DATA_TEXT_HEADER_LEN) throw new Error('Data is not sufficient in length!');
+            return buff.subarray(TRANSFER_DATA_TEXT_HEADER_LEN, TRANSFER_DATA_TEXT_HEADER_LEN + data_len).toString();
         }
     },
     [BUFFER_PARAM_RESPNOSE]: {
         parse: (buff) => {
             //buff_signeture(1 byte)+data_signeture(1 byte)+string_type(1 bytes)+pram_len(1 bytes)+data_len(1 bytes)+prams_buff(pram_len bytes)+data_buff(data_len bytes)
-            if (buff.length < 5) throw new Error('Invalid data length!');
+            if (buff.length < TRANSFER_DATA_PARAMS_HEADER_LEN) throw new Error('Invalid data length!');
             let data_type = buff[2];
             let pram_len = buff[3];
-            let data_len = buff[4];
+            let data_len_msb = buff[4];
+            let data_len_lsb = buff[5];
+            let data_len = ((data_len_msb << 8) | data_len_lsb) & 0xFFFF;
 
-            if (buff.length < pram_len + data_len + 5) throw new Error('Data is not sufficient in length!');
+            if (buff.length < pram_len + data_len + TRANSFER_DATA_PARAMS_HEADER_LEN) throw new Error('Data is not sufficient in length!');
 
-            let [prams_buff, data_buff] = [{ start: 5, len: pram_len }, { start: 5 + pram_len, len: data_len }].map(({ start, len }) => buff.subarray(start, start + len));
+            let [prams_buff, data_buff] = [{ start: TRANSFER_DATA_PARAMS_HEADER_LEN, len: pram_len }, { start: TRANSFER_DATA_PARAMS_HEADER_LEN + pram_len, len: data_len }].map(({ start, len }) => buff.subarray(start, start + len));
 
-            return { [prams_buff.toString()]: type_conversion[data_type](data_buff,data_len) };
+            return { [prams_buff.toString()]: type_conversion[data_type](data_buff, data_len) };
         }
     },
     [BUFFER_ARRY_RESPNOSE]: {
@@ -188,7 +204,7 @@ const buffer_response_parsing = {
             //buff_signeture(1 byte)+data_signeture(1 byte)+type(1 bytes)+type_size(1 bytes)+pram_len(1 bytes)+data_size(1 bytes)+prams_buff+data_buff
             //console.log('Array data parsing');
 
-            if (buff.length < 6) throw new Error('Invalid data length!');
+            if (buff.length < TRANSFER_DATA_ARRAY_HEADER_LEN) throw new Error('Invalid data length!');
             let type = buff[2];
 
             //console.log('Type:',type);
@@ -199,17 +215,19 @@ const buffer_response_parsing = {
 
             let type_size = buff[3];
             let pram_len = buff[4];
-            let data_size = buff[5];
+            let data_size_msb = buff[5];
+            let data_size_lsb = buff[6];
+            let data_size = ((data_size_msb << 8) | data_size_lsb) & 0xFFFF;
             let data_len = type_size * data_size;
 
             //console.log('Info:',{type_size,pram_len,data_len,data_size,data_len});
 
-            if (buff.length < pram_len + data_len + 6) throw new Error('Data is not sufficient in length!');
+            if (buff.length < pram_len + data_len + TRANSFER_DATA_ARRAY_HEADER_LEN) throw new Error('Data is not sufficient in length!');
 
-            let prams_buff = buff.subarray(6, 6 + pram_len);
-            let data_pos_to = 6 + pram_len + data_len;
+            let prams_buff = buff.subarray(TRANSFER_DATA_ARRAY_HEADER_LEN, TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len);
+            let data_pos_to = TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len + data_len;
             let data_array = [];
-            for (let i = 6 + pram_len; i < data_pos_to; i += type_size) {
+            for (let i = TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len; i < data_pos_to; i += type_size) {
                 let data_buff = buff.subarray(i, i + type_size);
                 data_array.push(type_conv(data_buff, type_size));
             }
@@ -222,29 +240,33 @@ const buffer_response_parsing = {
 };
 
 
-const buffer_response_maker={
-    [BUFFER_TEXT_RESPNOSE]:(data)=>{
+const buffer_response_maker = {
+    [BUFFER_TEXT_RESPNOSE]: (data) => {
         let data_holder = new Struct(BufferTextResponseHeader);
-        data_holder.set('signeture',TRANSFER_DATA_BUFFER_SIG);
-        data_holder.set('signeture_type',BUFFER_TEXT_RESPNOSE);
-        data_holder.set('data_size',data.length);
+        data_holder.set('signeture', TRANSFER_DATA_BUFFER_SIG);
+        data_holder.set('signeture_type', BUFFER_TEXT_RESPNOSE);
+        data_holder.set('data_size_msb', (data.length >> 8) & 0xFF);
+        data_holder.set('data_size_lsb', (data.length & 0xFF));
 
         return Buffer.concat([
             data_holder.ref(),
             Buffer.from(data)
         ]);
     },
-    [BUFFER_PARAM_RESPNOSE]:(param,data,force_type=null)=>{
-        let data_type=force_type===null?getTypeIdExtended(data):force_type;
-        
-        if(data_type===null)throw new Error('Data is not valid');
+    [BUFFER_PARAM_RESPNOSE]: (param, data, force_type = null) => {
+        let data_type = force_type === null ? getTypeIdExtended(data) : force_type;
+
+        if (data_type === null) throw new Error('Data is not valid');
 
         let data_holder = new Struct(BufferParamResponseHeader);
-        data_holder.set('signeture',TRANSFER_DATA_BUFFER_SIG);
-        data_holder.set('signeture_type',BUFFER_PARAM_RESPNOSE);
-        data_holder.set('data_type',data_type);
-        data_holder.set('pram_len',param.length);
-        data_holder.set('data_size',data.length);
+        data_holder.set('signeture', TRANSFER_DATA_BUFFER_SIG);
+        data_holder.set('signeture_type', BUFFER_PARAM_RESPNOSE);
+        data_holder.set('data_type', data_type);
+        data_holder.set('pram_len', param.length);
+        data_holder.set('data_size_msb', (data.length >> 8) & 0xFF);
+        data_holder.set('data_size_lsb', (data.length & 0xFF));
+
+        //console.log('length:',data.length,'msb:',(data.length >> 8) & 0xFF,'lsb:',(data.length & 0xFF));
 
         return Buffer.concat([
             data_holder.ref(),
@@ -252,20 +274,21 @@ const buffer_response_maker={
             Buffer.from(data.buffer)
         ]);
     },
-    [BUFFER_ARRY_RESPNOSE]:(param,data,typed_array=true)=>{
-        if(typed_array){
-            let data_type=getTypeIdExtended(data);
-            let type_size=getTypeSize(data_type);
-            
-            if(data_type===null || type_size===null)throw new Error('Data is not valid');
+    [BUFFER_ARRY_RESPNOSE]: (param, data, typed_array = true) => {
+        if (typed_array) {
+            let data_type = getTypeIdExtended(data);
+            let type_size = getTypeSize(data_type);
+
+            if (data_type === null || type_size === null) throw new Error('Data is not valid');
 
             let data_holder = new Struct(BufferArrayResponseHeader);
-            data_holder.set('signeture',TRANSFER_DATA_BUFFER_SIG);
-            data_holder.set('signeture_type',BUFFER_ARRY_RESPNOSE);
-            data_holder.set('data_type',data_type);
-            data_holder.set('type_size',type_size);
-            data_holder.set('pram_len',param.length);
-            data_holder.set('data_size',data.length);
+            data_holder.set('signeture', TRANSFER_DATA_BUFFER_SIG);
+            data_holder.set('signeture_type', BUFFER_ARRY_RESPNOSE);
+            data_holder.set('data_type', data_type);
+            data_holder.set('type_size', type_size);
+            data_holder.set('pram_len', param.length);
+            data_holder.set('data_size_msb', (data.length >> 8) & 0xFF);
+            data_holder.set('data_size_lsb', (data.length & 0xFF));
 
             return Buffer.concat([
                 data_holder.ref(),
@@ -273,26 +296,27 @@ const buffer_response_maker={
                 Buffer.from(data.buffer)
             ]);
         }
-        else{
+        else {
             //console.log('Array Struct Transfer');
 
-            if(!(Array.isArray(data) && data.length>0 && typeof data[0]=='object' && data[0] instanceof Struct))throw new Error('Data is not valid');
-            if(data.length==0)throw new Error('Data is empty.');
+            if (!(Array.isArray(data) && data.length > 0 && typeof data[0] == 'object' && data[0] instanceof Struct)) throw new Error('Data is not valid');
+            if (data.length == 0) throw new Error('Data is empty.');
 
-            let data_type=DATA_TYPE_VOID; //struct array transfer data type is void
-            let type_size=data[0].size();
+            let data_type = DATA_TYPE_VOID; //struct array transfer data type is void
+            let type_size = data[0].size();
 
-            if(!data.every(row=>typeof row=='object' && row instanceof Struct && row.size()==type_size))throw new Error('Data array is invalid.');
+            if (!data.every(row => typeof row == 'object' && row instanceof Struct && row.size() == type_size)) throw new Error('Data array is invalid.');
 
             let data_holder = new Struct(BufferArrayResponseHeader);
-            data_holder.set('signeture',TRANSFER_DATA_BUFFER_SIG);
-            data_holder.set('signeture_type',BUFFER_ARRY_RESPNOSE);
-            data_holder.set('data_type',data_type);
-            data_holder.set('type_size',type_size);
-            data_holder.set('pram_len',param.length);
-            data_holder.set('data_size',data.length);
+            data_holder.set('signeture', TRANSFER_DATA_BUFFER_SIG);
+            data_holder.set('signeture_type', BUFFER_ARRY_RESPNOSE);
+            data_holder.set('data_type', data_type);
+            data_holder.set('type_size', type_size);
+            data_holder.set('pram_len', param.length);
+            data_holder.set('data_size_msb', (data.length >> 8) & 0xFF);
+            data_holder.set('data_size_lsb', (data.length & 0xFF));
 
-            let trans_data=Buffer.concat(data.map(row=>row.ref()));
+            let trans_data = Buffer.concat(data.map(row => row.ref()));
 
             //console.log('type_size:',type_size);
             //console.log('data_type:',data_type);
@@ -311,85 +335,85 @@ const buffer_response_maker={
 
 module.exports = class PacketDevice {
     attached_serial_dev;
-    delimiter='';
+    delimiter = '';
     onDataCb = [];
     dataReceiverHolder = [];
 
-    static Type=Object.fromEntries(Object.entries(Struct.type).map(([name,type])=>{
-        return [name,{
-            type:STRUCT_EQUVALENT_TYPE[name],
-            details:Struct.makeType({value:type})
+    static Type = Object.fromEntries(Object.entries(Struct.type).map(([name, type]) => {
+        return [name, {
+            type: STRUCT_EQUVALENT_TYPE[name],
+            details: Struct.makeType({ value: type })
         }];
     }));
 
-    constructor(delimiter='\r\n') {
-        this.delimiter=delimiter;
+    constructor(delimiter = '\r\n') {
+        this.delimiter = delimiter;
         this.dataParser = new DataEndPusherExtractor(delimiter);
     }
 
-    open(serial_dev){
-        this.attached_serial_dev=serial_dev;
-        serial_dev.on('data',(buff)=>{
-            
+    open(serial_dev) {
+        this.attached_serial_dev = serial_dev;
+        serial_dev.on('data', (buff) => {
+
             //console.log('data:',buff,'len:',buff.length);
 
             this.dataReceiver(buff);
         });
     }
 
-    close(){
-        this.attached_serial_dev=null; //release device
+    close() {
+        this.attached_serial_dev = null; //release device
     }
 
-    write(buffer){
-        if(this.attached_serial_dev && 'write' in this.attached_serial_dev){
+    write(buffer) {
+        if (this.attached_serial_dev && 'write' in this.attached_serial_dev) {
             return this.attached_serial_dev.write(buffer);
         }
         else throw new Error('Device is not opened!');
     }
 
-    writePacket(param,data){
-        let packet=this.dataPacket(param,data,false);
-        if(packet===null)throw new Error('Invalid data!');
+    writePacket(param, data) {
+        let packet = this.dataPacket(param, data, false);
+        if (packet === null) throw new Error('Invalid data!');
         return this.write(packet);
     }
 
-    println(data){
+    println(data) {
         return this.write(Buffer.concat([Buffer.from(data), Buffer.from(this.delimiter)]));
     }
-    
-    static getTypedValue(type,value){
+
+    static getTypedValue(type, value) {
         //console.log(type,typeof type);
-        if(typeof type=='object' && 'details' in type){
+        if (typeof type == 'object' && 'details' in type) {
             let data_holder = new Struct(type.details);
-            data_holder.set('value',value);
+            data_holder.set('value', value);
             return {
-                type:type.type,
-                value:data_holder
+                type: type.type,
+                value: data_holder
             };
         }
         else throw new Error('Invalid type!');
     }
 
-    static getDataCrc(buff){
+    static getDataCrc(buff) {
         return crc16Ccitt(buff);
     }
 
     static checkCrcValidity(buff) {
         let len = buff.length;
         if (len <= 2) return null;
-        
-        let data=buff.subarray(0, len - 2);
 
-        let crc=PacketDevice.getDataCrc(data);
-        if(crc===null)return null;
+        let data = buff.subarray(0, len - 2);
+
+        let crc = PacketDevice.getDataCrc(data);
+        if (crc === null) return null;
 
         let crc_msb = buff[len - 2] & 0xFF;
         let crc_lsb = buff[len - 1] & 0xFF;
 
         let check_crc = (crc_msb << 8) | crc_lsb;
 
-        let status = check_crc == crc ?  data: null;
+        let status = check_crc == crc ? data : null;
         // if(!status){
         //     let s=buff.toString();
         //     console.log(`data:`,buff,s,s.length);
@@ -415,61 +439,65 @@ module.exports = class PacketDevice {
         throw new Error('The received data is not parseable!');
     }
 
-    static bufferGenerate(param,data){
-        if(data!==null){
+    static bufferGenerate(param, data) {
+        if (data !== null) {
             //console.log(param,typeof data=='object',data instanceof Struct);
-            if(ArrayBuffer.isView(data)){
+            if (ArrayBuffer.isView(data)) {
                 //typed array
-                return buffer_response_maker[BUFFER_ARRY_RESPNOSE](param,data);
+                return buffer_response_maker[BUFFER_ARRY_RESPNOSE](param, data);
             }
-            else if(Array.isArray(data) && data.length>0 && typeof data[0]=='object' && data[0] instanceof Struct){
+            else if (Array.isArray(data) && data.length > 0 && typeof data[0] == 'object' && data[0] instanceof Struct) {
                 //Structed array
-                return buffer_response_maker[BUFFER_ARRY_RESPNOSE](param,data,false);
+                return buffer_response_maker[BUFFER_ARRY_RESPNOSE](param, data, false);
             }
-            else if(typeof data=='object' && 'value' in data && data.value instanceof Struct){
+            else if (typeof data == 'object' && 'value' in data && data.value instanceof Struct) {
                 //value type, a single typed data send 
-                return buffer_response_maker[BUFFER_PARAM_RESPNOSE](param,data.value.ref(),data.type);
+                return buffer_response_maker[BUFFER_PARAM_RESPNOSE](param, data.value.ref(), data.type);
             }
-            else if(typeof data=='object' && data instanceof Struct){
+            else if (typeof data == 'object' && data instanceof Struct) {
                 //value type: a complete struct send
-                return buffer_response_maker[BUFFER_PARAM_RESPNOSE](param,data.ref(),DATA_TYPE_VOID);
+                return buffer_response_maker[BUFFER_PARAM_RESPNOSE](param, data.ref(), DATA_TYPE_VOID);
             }
             else throw new Error('Data is invalid!');
         }
-        else if(typeof param=='string'){
+        else if (typeof param == 'string') {
             //text type
             return buffer_response_maker[BUFFER_TEXT_RESPNOSE](param);
         }
         return null;
     }
 
-    dataPacket(param,data,ending=false){
-        let buff=PacketDevice.bufferGenerate(param,data);
-        if(buff===null)return null;
-        let crc=PacketDevice.getDataCrc(buff);
-       
-        if(ending){
+    dataPacket(param, data, ending = false) {
+        let buff = PacketDevice.bufferGenerate(param, data);
+        if (buff === null) return null;
+        let crc = PacketDevice.getDataCrc(buff);
+
+        if (ending) {
             //end with delimeter
             return Buffer.concat([
                 buff,
                 Buffer.from([
-                    crc>>8 & 0xFF,
+                    crc >> 8 & 0xFF,
                     crc & 0xFF,
                 ]),
                 Buffer.from(this.delimiter)
             ]);
         }
-        else{
+        else {
             //transfer with buffer
             return Buffer.concat([
-                this.dataParser.updatePacketLength(buff.length+2),
+                this.dataParser.updatePacketLength(buff.length + 2),
                 buff,
                 Buffer.from([
-                    crc>>8 & 0xFF,
+                    crc >> 8 & 0xFF,
                     crc & 0xFF,
                 ])
             ]);
         }
+    }
+
+    setBufferMode(ending = true) {
+        this.dataParser.setBufferMode(ending);
     }
 
     clearBufferQueue() {
@@ -478,24 +506,25 @@ module.exports = class PacketDevice {
 
     checkDeviceData(buff_data) {
         let buff_packets = this.dataParser.pushOut(buff_data);
-        if (buff_packets==null || buff_packets.length == 0) return null;
+        if (buff_packets == null || buff_packets.length == 0) return null;
 
         //console.log(buff_packets);
 
         return buff_packets.map(buff => {
+            //console.log('Checking packet length:', buff.length);
             return PacketDevice.checkCrcValidity(buff);
         }).filter(t => t);
     }
 
     dataReceiveHandel(err, data) {
         //that function will call when data received and it will receive every of the packets separately one by one
-        for(let cb of this.onDataCb){
-            if(cb(err, data)===true){
+        for (let cb of this.onDataCb) {
+            if (cb(err, data) === true) {
                 //if that is block of flow then return here not processing any other 
                 return;
             }
         }
-        
+
         while (this.dataReceiverHolder.length > 0) {
             let callback = this.dataReceiverHolder.shift();
             if (callback(err, data) === true) {
@@ -509,7 +538,7 @@ module.exports = class PacketDevice {
     dataReceiver(buff) {
         try {
             let data_packets = this.checkDeviceData(buff);
-            
+            //console.log('Received packets:', data_packets ? data_packets.length : 0);
             //if(buff.toString().indexOf('payload')>=0)console.log('data--->',data_packets.map(v=>v.toString()));
 
             if (!data_packets) return; //data is not completed
@@ -517,6 +546,7 @@ module.exports = class PacketDevice {
             if (data_packets.length == 0) return this.dataReceiveHandel(new Error('CRC validity error detected.'));
 
             for (let data of data_packets) {
+                //console.log('Processing packet length:', data.length);
                 this.dataReceiveHandel(null, data);
             }
         }
@@ -526,16 +556,16 @@ module.exports = class PacketDevice {
     }
 
     onData(callback) {
-        if (typeof callback == 'function')this.onDataCb.push(callback);
+        if (typeof callback == 'function') this.onDataCb.push(callback);
     }
 
-    removeOnData(callback=null){
-        if(callback===null){
-            this.onDataCb=[]; //clear
+    removeOnData(callback = null) {
+        if (callback === null) {
+            this.onDataCb = []; //clear
         }
         else {
-            let f=this.onDataCb.indexOf(callback);
-            if(f != -1)this.onDataCb.splice(f,1); //delete
+            let f = this.onDataCb.indexOf(callback);
+            if (f != -1) this.onDataCb.splice(f, 1); //delete
         }
     }
 
@@ -586,14 +616,14 @@ module.exports = class PacketDevice {
     }
 
     findUntill(checker_callback, timeout = 1500) {
-        if(typeof checker_callback !='function')throw new Error('Invalid checker callback!');
-        return new Promise((accept,reject)=>{
+        if (typeof checker_callback != 'function') throw new Error('Invalid checker callback!');
+        return new Promise((accept, reject) => {
 
-            let result_cb=(err,result)=>{
+            let result_cb = (err, result) => {
                 clearTimeout(timeout_handeler);
                 this.removeOnData(cb);
-                
-                if(err)reject(err);
+
+                if (err) reject(err);
                 else accept(result);
 
                 return true; //block flow
@@ -602,20 +632,20 @@ module.exports = class PacketDevice {
             let cb = (err, data) => {
                 //console.log('extra receiver');
                 if (err) return reject(err);
-                
-                try{
+
+                try {
                     let parsed_data = PacketDevice.dataParse(data);
 
-                    try{
-                        let check_result=checker_callback(parsed_data);
-                        if(check_result) return result_cb(null,check_result);
+                    try {
+                        let check_result = checker_callback(parsed_data);
+                        if (check_result) return result_cb(null, check_result);
                     }
-                    catch(err){
+                    catch (err) {
                         //if the checker callback have error then return that error
                         return result_cb(err);
                     }
                 }
-                catch(err){
+                catch (err) {
                     //no error handel here for parsing error
                 }
             };
@@ -630,9 +660,9 @@ module.exports = class PacketDevice {
     }
 
     waitUntillFound(valid_data, timeout = 1500) {
-        return new Promise((accept,reject)=>{
+        return new Promise((accept, reject) => {
 
-            let result_cb=(result)=>{
+            let result_cb = (result) => {
                 clearTimeout(timeout_handeler);
                 this.removeOnData(cb);
                 accept(result);
@@ -641,10 +671,10 @@ module.exports = class PacketDevice {
             let cb = (err, data) => {
                 //console.log('extra receiver');
                 if (err) return reject(err);
-                
-                try{
+
+                try {
                     let parsed_data = PacketDevice.dataParse(data);
-                    
+
                     if (Array.isArray(valid_data) && typeof parsed_data == 'object') {
                         for (let key of valid_data) {
                             if (key in parsed_data) return result_cb(parsed_data);
@@ -659,7 +689,7 @@ module.exports = class PacketDevice {
                         else if (parsed_data == valid_data) return result_cb(parsed_data);
                     }
                 }
-                catch(err){
+                catch (err) {
                     //no error handel here
                 }
             };

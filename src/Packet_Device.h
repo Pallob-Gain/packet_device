@@ -54,6 +54,11 @@
 #define PACKET_SIGNETURE_DATA_LEN 4
 #define PACKET_SIGNETURE_LEN 9
 
+#define TRANSFER_DATA_TEXT_HEADER_LEN 4 //buff_signeture(1 byte)+data_signeture(1 byte) +data_len(2 bytes)
+
+#define TRANSFER_DATA_PARAMS_HEADER_LEN 6 //buff_signeture(1 byte)+data_signeture(1 byte)+data_type(1 byte)+pram_len(1 bytes)+data_len(2 bytes)
+#define TRANSFER_DATA_ARRAY_HEADER_LEN 7 //buff_signeture(1 byte)+data_signeture(1 byte)+type(1 bytes)+type_size(1 bytes)+pram_len(1 bytes)+data_size(2 bytes)
+
 #define CRC_BYTE_LEN 2
 
 // CRC 256-entry lookup table for CRC-16/CCITT-FALSE
@@ -105,7 +110,7 @@ class DevicePacket
 private:
   Stream *serial_dev = NULL;
   bool response_buffer_mode = true;
-  bool auto_flush = true;
+  bool auto_flush = false;
 
   Command_t<R, N> *commands_holder;
   uint8_t max_command_queue_length = 0;
@@ -116,8 +121,8 @@ private:
   std::map<String, void (*)(String)> insert_data_cmnds;
   std::map<String, void (*)(String)> get_pram_cmnds;
   std::map<String, void (*)()> get_process_cmnds;
-  std::map<String, void (*)(R *, uint8_t, uint8_t, uint8_t)> get_response_buff;
-  std::map<String, std::function<void(R *, uint8_t, uint8_t, uint8_t)>> any_response_buff;
+  std::map<String, void (*)(R *, uint8_t, uint16_t, uint16_t)> get_response_buff;
+  std::map<String, std::function<void(R *, uint8_t, uint16_t, uint16_t)>> any_response_buff;
 
   static uint8_t packet_info[PACKET_SIGNETURE_LEN]; // packet length signeture
   uint16_t packet_length = 0;
@@ -135,7 +140,7 @@ private:
 
   uint16_t getPacketLength(uint8_t *transfer_buff);
   void updatePacketLength(uint8_t *transfer_buff, uint16_t packet_size);
-  void dataOutToSerial(uint8_t *buff, uint16_t size);
+  void dataOutToSerial(uint8_t *buff, uint16_t size,uint8_t *header=nullptr, uint8_t header_size=0);
   void dataOutToSerial(String str);
 
   void writer_lock();
@@ -191,20 +196,14 @@ public:
     vSemaphoreDelete(writter_locker);
 #endif
 
-    delete &receiver_locker;
-    delete &writter_locker;
-
-    delete serial_dev, &response_buffer_mode, &auto_flush;
+    delete serial_dev;
     delete[] commands_holder;
-    delete &max_command_queue_length, &current_commands_length, &commpleted_cmd_read;
     delete &insert_pram_data_cmnds, &insert_data_cmnds, &get_pram_cmnds, &get_process_cmnds, &get_response_buff, &any_response_buff;
     delete[] delimeters;
-    delete &delimeter_len;
-    delete &bulk_read_enabled;
   }
 
   template <typename T>
-  static uint16_t getCRC(T *data, uint16_t len);
+  static uint16_t getCRC(T *data, uint16_t len, uint16_t initial_crc = 0x0000);
 
   template <typename T>
   static bool verifyCRC(T *data, uint16_t len);
@@ -214,16 +213,16 @@ public:
   void setReceiver(std::map<String, void (*)(String, String)> receivers);
   void setReceiver(std::map<String, void (*)(String)> receivers, bool prams = false);
   void setReceiver(std::map<String, void (*)()> receivers);
-  void setReceiver(std::map<String, void (*)(R *, uint8_t, uint8_t, uint8_t)> receivers);
+  void setReceiver(std::map<String, void (*)(R *, uint8_t, uint16_t, uint16_t)> receivers);
 
   void onReceive(String name, void (*fun)(String, String));
   void onReceive(String name, void (*fun)(String), bool prams = false);
   void onReceive(String name, void (*fun)());
-  void onReceive(String name, void (*fun)(R *, uint8_t, uint8_t, uint8_t));
+  void onReceive(String name, void (*fun)(R *, uint8_t, uint16_t, uint16_t));
   template <typename T>
   void onReceive(String name, std::function<void(T *)> fun);
   template <typename T>
-  void onReceive(String name, std::function<void(T *, uint8_t)> fun);
+  void onReceive(String name, std::function<void(T *, uint16_t)> fun);
 
   void processBytes(R *all_bytes, size_t len);
   void feedBytes(R *all_bytes, size_t len);
@@ -245,7 +244,7 @@ public:
   void restOut(String properties, T payload);
   // Template function
   template <typename T>
-  void restArrayOut(String properties, T data[], uint8_t data_size);
+  void restArrayOut(String properties, T data[], uint16_t data_size);
 
   void restOutStr(String properties, String payload);
   void restOutFloat(String properties, float payload);

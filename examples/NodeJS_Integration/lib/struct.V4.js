@@ -53,6 +53,11 @@ class Struct {
         int64_t: { state: INT64_T, signed: true, size: 8 },
     };
 
+    static sizeOf(struct_type) {
+        if (!struct_type || !struct_type.size) return 0;
+        return struct_type.size;
+    }
+
     static arrayType(type, length, converter) {
         return { array_type: true, type, length, size: type.size * length, converter };
     }
@@ -96,6 +101,11 @@ class Struct {
     }
 
     collect(source, source_start = 0) {
+        //check if source is buffer
+        if(!Buffer.isBuffer(source)) throw new Error('Source is not a Buffer');
+        //check size
+        if (source.length - source_start < this.holder.length) throw new Error('Source buffer size is smaller than struct size');
+
         source.copy(this.holder, 0, source_start, source_start + this.holder.length);
     }
 
@@ -104,9 +114,10 @@ class Struct {
     }
 
     setJson(value) {
-        if (!(typeof value == 'object')) return false;
+        if (!(typeof value == 'object')) throw new Error('Value is not an object');
 
         for (let name in this.struct.details) {
+            //only if the name exist in the value
             if (name in value) {
                 if (typeof value[name] == 'object') {
                     if (!('details' in this.struct.details[name])) throw new Error('Type is not a Struct');
@@ -140,12 +151,12 @@ class Struct {
     }
 
     set(label, value) {
-        if (!(label in this.struct.details)) return false;
+        if (!(label in this.struct.details)) throw new Error('Unknown struct property: ' + label);
         let info = this.struct.details[label];
         let data_holder = this.holder;
 
         if ('details' in info && info.details) {
-            if (!(value instanceof Struct)) return false;
+            if (!(value instanceof Struct)) throw new Error('Value is not a Struct instance');
             let buff = value.ref();
             buff.copy(data_holder, info.offset, 0, Math.min(info.size, buff.length));
         }
@@ -155,7 +166,7 @@ class Struct {
                 let array_length = info.length;
                 for (let idx = 0; idx < array_length; idx++) {
                     let struct_instance = value[idx];
-                    if (!(struct_instance instanceof Struct)) return false;
+                    if (!(struct_instance instanceof Struct)) throw new Error('Value is not a Struct instance');
                     let offset = info.offset + idx * info.type.size;
                     let buff = struct_instance.ref();
                     buff.copy(data_holder, offset, 0, Math.min(info.type.size, buff.length));
@@ -206,7 +217,7 @@ class Struct {
                         value = Int16Array.from(value).buffer;
                         break;
                     default:
-                        return false;
+                        throw new Error('Unknown array type: ' + type_state);
                 }
 
                 let buff = Buffer.from(value);
@@ -259,7 +270,7 @@ class Struct {
                     data_holder.writeInt16LE(value, info.offset);
                     break;
                 default:
-                    return false;
+                    throw new Error('Unknown data type: ' + type_state);
             }
 
         }
@@ -268,21 +279,23 @@ class Struct {
     }
 
     get(label) {
-        if (!(label in this.struct.details)) return false;
+        if (!(label in this.struct.details)) throw new Error('Unknown struct property: ' + label);
         let info = this.struct.details[label];
         let data_holder = this.holder;
 
-        let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
         let value = null;
 
         //if another struct
         if ('details' in info && info.details) {
+            let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
             value = new Struct(info);
             value.collect(section_data);
         }
         else if ('array_type' in info && info.array_type) {
+
             //if array of struct 
             if ('details' in info.type && info.type.details) {
+                let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
                 let array_length = info.length;
                 value = (new Array(array_length).fill(null)).map((_, idx) => {
                     let struct_instance = new Struct(info.type);
@@ -292,6 +305,10 @@ class Struct {
                 });
             }
             else {
+                //we need to copy the buffer section to the a new buffer otherwise array will fail as the offset need to be multiplied by element size
+                const section_data = Buffer.alloc(info.size);
+                data_holder.copy(section_data, 0, info.offset, info.offset + info.size);
+                //let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
                 let type_state = info.type.state;
 
                 switch (type_state) {
@@ -336,7 +353,7 @@ class Struct {
                         value = new Int16Array(section_data.buffer, section_data.byteOffset, section_data.length / Int16Array.BYTES_PER_ELEMENT);
                         break;
                     default:
-                        value = null;
+                        throw new Error('Unknown array type: ' + type_state);
                 }
 
                 if ('converter' in info && info.converter) {
@@ -346,6 +363,7 @@ class Struct {
             //console.log('array check:',value);
         }
         else {
+            let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
             let type_state = info.state;
 
             switch (type_state) {
@@ -390,7 +408,7 @@ class Struct {
                     value = section_data.readInt16LE(0);
                     break;
                 default:
-                    value = null;
+                    throw new Error('Unknown data type: ' + type_state);
             }
 
         }

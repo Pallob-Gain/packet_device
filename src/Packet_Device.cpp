@@ -30,7 +30,7 @@ void DevicePacket<R, N>::setReceiver(std::map<String, void (*)()> receivers)
 }
 
 template <typename R, uint16_t N>
-void DevicePacket<R, N>::setReceiver(std::map<String, void (*)(R *, uint8_t, uint8_t, uint8_t)> receivers)
+void DevicePacket<R, N>::setReceiver(std::map<String, void (*)(R *, uint8_t, uint16_t, uint16_t)> receivers)
 {
   get_response_buff = receivers;
 }
@@ -57,7 +57,7 @@ void DevicePacket<R, N>::onReceive(String name, void (*fun)())
 }
 
 template <typename R, uint16_t N>
-void DevicePacket<R, N>::onReceive(String name, void (*fun)(R *, uint8_t, uint8_t, uint8_t))
+void DevicePacket<R, N>::onReceive(String name, void (*fun)(R *, uint8_t, uint16_t, uint16_t))
 {
   get_response_buff[name] = fun;
 }
@@ -69,15 +69,19 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
   // Serial.println("Receive:" + String(len));
   // Serial.flush();
 
-  if (len >= 5 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
-  { // with crc
+  if (len >= 6 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
+  {
+    // TRANSFER_DATA_TEXT_HEADER_LEN+CRC_SIZE(2 bytes)=6
+    // with crc
     if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
-      uint8_t data_len = data[2];
-      if (data_len + 3 <= len)
+      uint8_t data_len_msb = data[2];
+      uint8_t data_len_lsb = data[3];
+      uint16_t data_len = ((data_len_msb << 8) | data_len_lsb) & 0xFFFF;
+      if (data_len + TRANSFER_DATA_TEXT_HEADER_LEN <= len)
       {
-        String text = String(data + 3, data_len);
+        String text = String(data + TRANSFER_DATA_TEXT_HEADER_LEN, data_len);
         if (get_process_cmnds.find(text) != get_process_cmnds.end())
         {
           // Call the function if the key is found
@@ -86,21 +90,24 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
       }
     }
   }
-  else if (len >= 7 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
+  else if (len >= 8 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
   {
-    // Serial.println("Prams:"+String(len)+",type:"+String((uint8_t)data[4]));
+    // TRANSFER_DATA_PARAMS_HEADER_LEN+CRC_SIZE(2 bytes)=8
+    //  Serial.println("Prams:"+String(len)+",type:"+String((uint8_t)data[4]));
     if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
       uint8_t data_type = data[2];
       uint8_t pram_len = data[3];
-      uint8_t data_len = data[4];
+      uint8_t data_len_msb = data[4];
+      uint8_t data_len_lsb = data[5];
+      uint16_t data_len = ((data_len_msb << 8) | data_len_lsb) & 0xFFFF;
 
       // Serial.println("data_type:"+String(data_type)+",pram_len:"+String(pram_len)+",data_len:"+String(data_len));
 
-      if (pram_len + data_len + 5 <= len)
+      if (pram_len + data_len + TRANSFER_DATA_PARAMS_HEADER_LEN <= len)
       {
-        String param = String(data + 5, pram_len);
+        String param = String(data + TRANSFER_DATA_PARAMS_HEADER_LEN, pram_len);
 
         // Serial.println("Data Pram-->"+param);
 
@@ -111,40 +118,43 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
 
         if (any_response_buff.find(param) != any_response_buff.end())
         {
-          any_response_buff[param](data + (5 + pram_len), data_type, data_len, 1);
+          any_response_buff[param](data + (TRANSFER_DATA_PARAMS_HEADER_LEN + pram_len), data_type, data_len, 1); // single data
         }
         else if (get_response_buff.find(param) != get_response_buff.end())
         {
           // Call the function if the key is found
-          get_response_buff[param](data + (5 + pram_len), data_type, data_len, 1);
+          get_response_buff[param](data + (TRANSFER_DATA_PARAMS_HEADER_LEN + pram_len), data_type, data_len, 1); // single data
         }
       }
     }
   }
-  else if (len >= 8 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
+  else if (len >= 9 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
   {
-    // Serial.println("Array:"+String(len));
+    // TRANSFER_DATA_ARRAY_HEADER_LEN+CRC_SIZE(2 bytes)=9
+    //  Serial.println("Array:"+String(len));
     if (verifyCRC<uint8_t>((uint8_t *)data, len))
     {
       len -= 2; // reduce crc
       uint8_t data_type = data[2];
       uint8_t type_size = data[3];
       uint8_t pram_len = data[4];
-      uint8_t data_size = data[5];
-      uint8_t data_len = type_size * data_size;
-      if (pram_len + data_len + 6 <= len)
+      uint8_t data_size_msb = data[5];
+      uint8_t data_size_lsb = data[6];
+      uint16_t data_size = ((data_size_msb << 8) | data_size_lsb) & 0xFFFF;
+      uint16_t data_len = type_size * data_size;
+      if (pram_len + data_len + TRANSFER_DATA_ARRAY_HEADER_LEN <= len)
       {
-        String param = String(data + 6, pram_len);
+        String param = String(data + TRANSFER_DATA_ARRAY_HEADER_LEN, pram_len);
         // Serial.println(param);
         // Serial.println(get_response_buff.size());
         if (any_response_buff.find(param) != any_response_buff.end())
         {
-          any_response_buff[param](data + (6 + pram_len), data_type, type_size, data_size);
+          any_response_buff[param](data + (TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len), data_type, type_size, data_size);
         }
         else if (get_response_buff.find(param) != get_response_buff.end())
         {
           // Call the function if the key is found
-          get_response_buff[param](data + (6 + pram_len), data_type, type_size, data_size);
+          get_response_buff[param](data + (TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len), data_type, type_size, data_size);
         }
       }
     }
@@ -247,8 +257,8 @@ bool DevicePacket<R, N>::queueCheck()
 template <typename R, uint16_t N>
 bool DevicePacket<R, N>::processEachData(R inchar)
 {
-  //TODO: remove debug print
-  //Serial.printf("%c: %d or %02X \r\n",inchar, inchar,inchar);
+  // TODO: remove debug print
+  // Serial.printf("%c: %d or %02X \r\n",inchar, inchar,inchar);
 
   Command_t<R, N> *cmd = &(commands_holder[current_commands_length]);
 
@@ -350,16 +360,17 @@ void DevicePacket<R, N>::processBytes(R *all_bytes, size_t len)
 {
   for (size_t x = 0; x < len; x++)
   {
-    if (current_commands_length >= max_command_queue_length){
-      //if the queue if full then not process any more receive untill the queue read
-      uint32_t start_time = (xTaskGetTickCount() * portTICK_PERIOD_MS);  // gives ms time used for timeout
-      //maximum wait for 1 second
-      while (this->queueCheck()==false && (xTaskGetTickCount() * portTICK_PERIOD_MS - start_time) < 1000)
+    if (current_commands_length >= max_command_queue_length)
+    {
+      // if the queue if full then not process any more receive untill the queue read
+      uint32_t start_time = (xTaskGetTickCount() * portTICK_PERIOD_MS); // gives ms time used for timeout
+      // maximum wait for 1 second
+      while (this->queueCheck() == false && (xTaskGetTickCount() * portTICK_PERIOD_MS - start_time) < 1000)
       {
-        //wait until queue has space
-        vTaskDelay(pdMS_TO_TICKS(10)); //wait for 10ms
+        // wait until queue has space
+        vTaskDelay(pdMS_TO_TICKS(10)); // wait for 10ms
       }
-    }                           
+    }
     this->processEachData(all_bytes[x]); // if the queue full it return false
   }
 }
@@ -521,44 +532,56 @@ template <typename R, uint16_t N>
 void DevicePacket<R, N>::updatePacketLength(uint8_t *transfer_buff, uint16_t packet_size)
 {
   memcpy(transfer_buff, packet_info, PACKET_SIGNETURE_LEN);
-
+  // Serial.printf("Updating packet length: %d \r\n", packet_size);
   //{ (packet_size & 0xF000) >> 12, (packet_size & 0x0F00) >> 8, (packet_size & 0x00F0) >> 4, packet_size & 0x000F }
   for (uint8_t i = 0; i < PACKET_SIGNETURE_DATA_LEN; i++)
   {
     transfer_buff[(i * 2) + 1] = (packet_size >> (12 - (i * 4))) & 0x0F;
+    // Serial.printf("Len byte %d : %02X \r\n", (i * 2) + 1, transfer_buff[(i * 2) + 1]);
   }
 }
 
 template <typename R, uint16_t N>
-void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size)
+void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *header, uint8_t header_size)
 {
-  uint16_t crc = getCRC<uint8_t>(buff, size);
-  uint8_t crc_bytes[CRC_BYTE_LEN] = {(uint8_t)(crc >> 8), (uint8_t)crc};
-  uint16_t packet_size = size + CRC_BYTE_LEN;
+  if (serial_dev == nullptr && size == 0)
+    return;
+
+  uint16_t crc = header_size > 0 ? getCRC<uint8_t>(header, header_size) : 0;
+  crc = getCRC<uint8_t>(buff, size, crc);
 
   if (response_buffer_mode)
   {
+    uint8_t crc_bytes[CRC_BYTE_LEN] = {(uint8_t)(crc >> 8), (uint8_t)crc};
+    uint16_t packet_size = header_size + size + CRC_BYTE_LEN;
 
-    uint16_t buff_size = PACKET_SIGNETURE_LEN + packet_size;
-    uint8_t transfer_buff[buff_size];
-
+    uint8_t transfer_buff[PACKET_SIGNETURE_LEN];
     updatePacketLength(transfer_buff, packet_size);
-    memcpy(transfer_buff + PACKET_SIGNETURE_LEN, buff, size);
-    memcpy(transfer_buff + (PACKET_SIGNETURE_LEN + size), crc_bytes, CRC_BYTE_LEN);
 
-    writeToPort(transfer_buff, buff_size);
+    this->writer_lock();
+    serial_dev->write(transfer_buff, PACKET_SIGNETURE_LEN);
+    if (header_size > 0)
+      serial_dev->write(header, header_size);
+    serial_dev->write(buff, size);
+    serial_dev->write(crc_bytes, CRC_BYTE_LEN);
+    this->writer_unlock();
   }
   else
   {
-    uint16_t buff_size = packet_size + delimeter_len;
-    uint8_t transfer_buff[buff_size];
+    uint8_t end_bytes[CRC_BYTE_LEN + delimeter_len] = {(uint8_t)(crc >> 8), (uint8_t)crc};
+    if (delimeter_len > 0)
+      memcpy(end_bytes + CRC_BYTE_LEN, delimeters, delimeter_len);
 
-    memcpy(transfer_buff, buff, size);
-    memcpy(transfer_buff + size, crc_bytes, CRC_BYTE_LEN);
-    memcpy(transfer_buff + (size + CRC_BYTE_LEN), delimeters, delimeter_len);
-
-    writeToPort(transfer_buff, buff_size);
+    this->writer_lock();
+    if (header_size > 0)
+      serial_dev->write(header, header_size);
+    serial_dev->write(buff, size);
+    serial_dev->write(end_bytes, CRC_BYTE_LEN + delimeter_len);
+    this->writer_unlock();
   }
+
+  if (auto_flush)
+    flushDataPort();
 }
 
 template <typename R, uint16_t N>
