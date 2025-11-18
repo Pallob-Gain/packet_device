@@ -142,11 +142,22 @@ class Struct {
         return false;
     }
 
+    valueExtractor(value) {
+        if (value instanceof Struct) {
+            return value.getJson();
+        }
+        else if (Array.isArray(value)) {
+            return value.map(item => this.valueExtractor(item));
+        }
+
+        return value;
+    }
+
     getJson() {
         let result = {};
         for (let name in this.struct.details) {
             let value = this.get(name);
-            result[name] = value instanceof Struct ? value.getJson() : (Array.isArray(value) ? value.map(item => item.getJson()) : value);
+            result[name] = this.valueExtractor(value);
         }
         return result;
     }
@@ -182,7 +193,7 @@ class Struct {
                         value = value;
                         break;
                     case BOOL:
-                        value = Uint8Array.from(value ? 1 : 0).buffer;
+                        value = Uint8Array.from(value.map(v => v ? 1 : 0)).buffer;
                         break;
                     case BYTE:
                     case UINT8_T:
