@@ -88,12 +88,13 @@ class Struct {
     holder; //buffer holder
     struct;
 
-    constructor(struct) {
+    constructor(struct,shared_buffer = null) {
+        if(shared_buffer && !(shared_buffer instanceof SharedArrayBuffer)) throw new Error('shared_buffer must be an instance of SharedArrayBuffer');
         this.struct = struct;
 
         //console.log({struct});
 
-        this.holder = Buffer.alloc(struct.size, 0);
+        this.holder = shared_buffer!==null ? Buffer.from(shared_buffer) : Buffer.alloc(struct.size, 0);
     }
 
     ref() {
@@ -102,7 +103,7 @@ class Struct {
 
     collect(source, source_start = 0) {
         //check if source is buffer
-        if(!Buffer.isBuffer(source)) throw new Error('Source is not a Buffer');
+        if (!Buffer.isBuffer(source)) throw new Error('Source is not a Buffer');
         //check size
         if (source.length - source_start < this.holder.length) throw new Error('Source buffer size is smaller than struct size');
 
@@ -180,8 +181,10 @@ class Struct {
                     case UCHAR:
                         value = value;
                         break;
-                    case BYTE:
                     case BOOL:
+                        value = Uint8Array.from(value ? 1 : 0).buffer;
+                        break;
+                    case BYTE:
                     case UINT8_T:
                         value = Uint8Array.from(value).buffer;
                         break;
@@ -233,8 +236,10 @@ class Struct {
                 case UCHAR:
                     data_holder.write(value, info.offset, info.size);
                     break;
-                case BYTE:
                 case BOOL:
+                    data_holder.writeUInt8(value ? 1 : 0, info.offset);
+                    break;
+                case BYTE:
                 case UINT8_T:
                     data_holder.writeUInt8(value, info.offset);
                     break;
@@ -316,8 +321,10 @@ class Struct {
                     case UCHAR:
                         value = Buffer.from(section_data);
                         break;
-                    case BYTE:
                     case BOOL:
+                        value = Array.from(new Uint8Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint8Array.BYTES_PER_ELEMENT)).map(v => v ? true : false);
+                        break;
+                    case BYTE:
                     case UINT8_T:
                         value = new Uint8Array(section_data.buffer, section_data.byteOffset, section_data.length / Uint8Array.BYTES_PER_ELEMENT);
                         break;
@@ -371,8 +378,10 @@ class Struct {
                 case UCHAR:
                     value = section_data.buffer[0];
                     break;
-                case BYTE:
                 case BOOL:
+                    value = section_data.readUInt8(0) ? true : false;
+                    break;
+                case BYTE:
                 case UINT8_T:
                     value = section_data.readUInt8(0);
                     break;
