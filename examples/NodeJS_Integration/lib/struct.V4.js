@@ -3,7 +3,7 @@
  * @author Pallob K. Gain (pallobkgain@gmail.com)
  * @M10Xcore V2.0 board library for c-struct
  * @version 0.1
- * @date 2023-06-2
+ * @date 2025-12-17
  * 
  * @copyright Copyright (c) 2023
  * 
@@ -389,51 +389,51 @@ class Struct {
             //console.log('array check:',value);
         }
         else {
-            let section_data = Buffer.from(data_holder.buffer, info.offset, info.size);
+            let section_data = data_holder;//Buffer.from(data_holder.buffer, info.offset, info.size);
             let type_state = info.state;
 
             switch (type_state) {
                 case CHAR:
                 case UCHAR:
-                    value = section_data.buffer[0];
+                    value = section_data.buffer[info.offset];
                     break;
                 case BOOL:
-                    value = section_data.readUInt8(0) ? true : false;
+                    value = section_data.readUInt8(info.offset) ? true : false;
                     break;
                 case BYTE:
                 case UINT8_T:
-                    value = section_data.readUInt8(0);
+                    value = section_data.readUInt8(info.offset);
                     break;
                 case UINT16_T:
-                    value = section_data.readUInt16LE(0);
+                    value = section_data.readUInt16LE(info.offset);
                     break;
                 case UINT32_T:
                 case UINT:
-                    value = section_data.readUInt32LE(0);
+                    value = section_data.readUInt32LE(info.offset);
                     break;
                 case UINT64_T:
                 case ULONG:
-                    value = section_data.readBigUInt64LE(0);
+                    value = section_data.readBigUInt64LE(info.offset);
                     break;
                 case INT32_T:
                 case INT:
-                    value = section_data.readInt32LE(0);
+                    value = section_data.readInt32LE(info.offset);
                     break;
                 case FLOAT:
-                    value = section_data.readFloatLE(0);
+                    value = section_data.readFloatLE(info.offset);
                     break;
                 case DOUBLE:
-                    value = section_data.readDoubleLE(0);
+                    value = section_data.readDoubleLE(info.offset);
                     break;
                 case INT64_T:
                 case LONG:
-                    value = section_data.readBigInt64LE(0);
+                    value = section_data.readBigInt64LE(info.offset);
                     break;
                 case INT8_T:
-                    value = section_data.readInt8(0);
+                    value = section_data.readInt8(info.offset);
                     break;
                 case INT16_T:
-                    value = section_data.readInt16LE(0);
+                    value = section_data.readInt16LE(info.offset);
                     break;
                 default:
                     throw new Error('Unknown data type: ' + type_state);
