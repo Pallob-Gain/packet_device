@@ -1,6 +1,6 @@
 {
   "name": "packet_device",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "main": "./lib/index.js",
   "type": "commonjs",
   "directories": {
