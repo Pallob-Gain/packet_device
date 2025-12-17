@@ -88,17 +88,25 @@ class Struct {
     holder; //buffer holder
     struct;
 
-    constructor(struct,shared_buffer = null) {
-        if(shared_buffer && !(shared_buffer instanceof SharedArrayBuffer)) throw new Error('shared_buffer must be an instance of SharedArrayBuffer');
+    constructor(struct, source = null) {
+        if (source && !(Buffer.isBuffer(source))) throw new Error('source must be an instance of Buffer');
+        if (source && source.length < struct.size) throw new Error('Buffer size is smaller than struct size');
+
         this.struct = struct;
 
         //console.log({struct});
 
-        this.holder = shared_buffer!==null ? Buffer.from(shared_buffer) : Buffer.alloc(struct.size, 0);
+        this.holder = source !== null ? source : Buffer.alloc(struct.size, 0);
     }
 
     ref() {
         return this.holder;
+    }
+
+    useRef(source) {
+        if (!Buffer.isBuffer(source)) throw new Error('Buffer is not a Buffer instance');
+        if (source.length < this.struct.size) throw new Error('Buffer size is smaller than struct size');
+        this.holder = source;
     }
 
     collect(source, source_start = 0) {
