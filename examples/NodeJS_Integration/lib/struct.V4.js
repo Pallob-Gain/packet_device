@@ -128,18 +128,18 @@ class Struct {
         for (let name in this.struct.details) {
             //only if the name exist in the value
             if (name in value) {
-                if (typeof value[name] == 'object') {
-                    if (!('details' in this.struct.details[name])) throw new Error('Type is not a Struct');
-                    let child = new Struct(this.struct.details[name]);
-                    child.setJson(value[name]);
-                    this.set(name, child);
-                }
-                else if (Array.isArray(value[name]) && ('array_type' in this.struct.details[name] && this.struct.details[name].array_type && 'details' in this.struct.details[name].type)) {
+                if (Array.isArray(value[name]) && ('array_type' in this.struct.details[name] && this.struct.details[name].array_type && 'details' in this.struct.details[name].type)) {
                     this.set(name, value[name].map(item => {
                         let child = new Struct(this.struct.details[name].type);
                         child.setJson(item);
                         return child;
                     }));
+                }
+                else if (typeof value[name] == 'object') {
+                    if (!('details' in this.struct.details[name])) throw new Error(`Type: ${name} is not a Struct`);
+                    let child = new Struct(this.struct.details[name]);
+                    child.setJson(value[name]);
+                    this.set(name, child);
                 }
                 else {
                     this.set(name, value[name]);
@@ -168,6 +168,10 @@ class Struct {
             result[name] = this.valueExtractor(value);
         }
         return result;
+    }
+
+    has(prop){
+        return prop in this.struct.details;
     }
 
     set(label, value) {
