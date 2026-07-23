@@ -6,34 +6,39 @@
                 "${workspaceFolder}/**",
                 "C:/Users/pallo/AppData/Local/Arduino15/**",
                 "C:/Users/pallo/Documents/Arduino/libraries/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/libraries/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
-                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos"
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/cores/esp32/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/libraries/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/variants/esp32/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.10/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.10/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
+                "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.10/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos"
             ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
-            ],
-            "intelliSenseMode": "gcc-x64",
-            "compilerPath": "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2411/bin/xtensa-esp32-elf-g++.exe",
-            "cStandard": "c11",
-            "cppStandard": "c++17",
             "browse": {
                 "path": [
-                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32/**",
-                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/libraries/**",
-                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32/**",
-                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/**",
-                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/cores/esp32/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/libraries/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.10/variants/esp32/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.10/**",
+                    "C:/Users/pallo/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.10/include/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/**",
                     "${workspaceRoot}/**"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
-            }
+            },
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                 "_UNICODE",
+                 "ESP32",
+                 "ARDUINO_ARCH_ESP32"
+            ],
+            "cStandard": "gnu99",
+            "cppStandard": "gnu++11",
+            "compilerPath": "C:/Users/pallo/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc.exe",
+            "compilerArgs": [
+                "-mlongcalls",
+                ""
+            ]
         }
     ],
     "version": 4

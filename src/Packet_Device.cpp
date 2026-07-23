@@ -1,6 +1,5 @@
 #include "./Packet_Device.h"
 #include <algorithm>
-#include "Packet_Device.h"
 
 template <typename R, uint16_t N>
 void DevicePacket<R, N>::enableBulkRead(bool state)
@@ -224,11 +223,11 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
 template <typename R, uint16_t N>
 bool DevicePacket<R, N>::queueCheck()
 {
-  if (commpleted_cmd_read)
+  if (completed_cmd_read)
   {
     this->receiver_lock();
     current_commands_length = 0; // it is restriction to write a variable from two different thread
-    commpleted_cmd_read = false;
+    completed_cmd_read = false;
     packet_length = 0;
     this->receiver_unlock();
   }
@@ -424,7 +423,7 @@ template <typename R, uint16_t N>
 void DevicePacket<R, N>::processingQueueCommands()
 {
   // command process from listening thread
-  if (current_commands_length > 0 && commpleted_cmd_read == false)
+  if (current_commands_length > 0 && completed_cmd_read == false)
   { // if only the queue has data
     for (uint8_t i = 0; i < current_commands_length; i++)
     {
@@ -443,7 +442,7 @@ void DevicePacket<R, N>::processingQueueCommands()
     }
     // current_commands_length = 0;
     this->receiver_lock();
-    commpleted_cmd_read = true;
+    completed_cmd_read = true;
     this->receiver_unlock();
   }
 }
@@ -552,8 +551,8 @@ void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
 
   if (response_buffer_mode)
   {
-    uint8_t crc_bytes[CRC_BYTE_LEN] = {(uint8_t)(crc >> 8), (uint8_t)crc};
-    uint16_t packet_size = header_size + size + CRC_BYTE_LEN;
+    uint8_t crc_bytes[CRC16_BYTE_LEN] = {(uint8_t)(crc >> 8), (uint8_t)crc};
+    uint16_t packet_size = header_size + size + CRC16_BYTE_LEN;
 
     uint8_t transfer_buff[PACKET_SIGNETURE_LEN];
     updatePacketLength(transfer_buff, packet_size);
@@ -563,20 +562,20 @@ void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
     if (header_size > 0)
       serial_dev->write(header, header_size);
     serial_dev->write(buff, size);
-    serial_dev->write(crc_bytes, CRC_BYTE_LEN);
+    serial_dev->write(crc_bytes, CRC16_BYTE_LEN);
     this->writer_unlock();
   }
   else
   {
-    uint8_t end_bytes[CRC_BYTE_LEN + delimeter_len] = {(uint8_t)(crc >> 8), (uint8_t)crc};
+    uint8_t end_bytes[CRC16_BYTE_LEN + delimeter_len] = {(uint8_t)(crc >> 8), (uint8_t)crc};
     if (delimeter_len > 0)
-      memcpy(end_bytes + CRC_BYTE_LEN, delimeters, delimeter_len);
+      memcpy(end_bytes + CRC16_BYTE_LEN, delimeters, delimeter_len);
 
     this->writer_lock();
     if (header_size > 0)
       serial_dev->write(header, header_size);
     serial_dev->write(buff, size);
-    serial_dev->write(end_bytes, CRC_BYTE_LEN + delimeter_len);
+    serial_dev->write(end_bytes, CRC16_BYTE_LEN + delimeter_len);
     this->writer_unlock();
   }
 

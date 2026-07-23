@@ -34,29 +34,14 @@ template <typename R, uint16_t N>
 template <typename T>
 uint16_t DevicePacket<R, N>::getCRC(T *data, uint16_t len, uint16_t initial_crc)
 {
-  // CRC-16 (CCITT-FALSE)
-  uint16_t crc = initial_crc; // initial value (XorOut=0x0000)
-  for (uint16_t i = 0; i < len; ++i)
-  {
-    uint8_t idx = (uint8_t)((crc >> 8) ^ data[i]);
-    crc = (uint16_t)((crc << 8) ^ crc16_ccitt_tbl[idx]);
-  }
-  return crc;
+  return CyclicRedundancyCheck::calculateCRC16((uint8_t *)data, len, initial_crc);
 }
 
 template <typename R, uint16_t N>
 template <typename T>
-bool DevicePacket<R, N>::verifyCRC(T *data, uint16_t len)
+bool DevicePacket<R, N>::verifyCRC(T *data, uint16_t len, uint16_t initial_crc)
 {
-  if (len <= 2)
-    return false;
-  uint16_t offset = len - 2;
-  uint16_t crc = getCRC<T>(data, offset);
-
-  // Serial.println(String(crc,HEX)+" "+String(crc >> 8,HEX)+" "+String(crc & 0xFF,HEX));
-  // Serial.println(String(data[offset],HEX)+" "+String(data[offset+1],HEX));
-
-  return (T)((crc >> 8) & 0xFF) == data[offset] && (T)(crc & 0xFF) == data[offset + 1];
+  return CyclicRedundancyCheck::verifyCRC16((uint8_t *)data, len, initial_crc);
 }
 
 template <typename R, uint16_t N>

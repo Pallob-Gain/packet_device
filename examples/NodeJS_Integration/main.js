@@ -3,8 +3,10 @@ const { PacketDevice, Struct } = require('./lib/index.js');
 const { SerialPort } = require('serialport')
 
 
-const PORT = process.env.PORT?.trim() || 'COM3';
+const PORT = process.env.PORT?.trim() || 'COM31';
 const BUADRATE = 115200;
+
+console.log('Communication port:', PORT, 'Baudrate:', BUADRATE);
 
 const MassiveData = Struct.makeType({
 	name: Struct.stringType(100),

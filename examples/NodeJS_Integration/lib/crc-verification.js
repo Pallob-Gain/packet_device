@@ -37,7 +37,7 @@ const CRC16_TABLE = [
 
 
 const crc16Ccitt = (data) => {
-  let crc = 0x0000;   // same as your C code
+  let crc = 0x0000;   // we need to keep it zero to support with ROBOCLAW
 
   for (let i = 0; i < data.length; i++) {
     const idx = ((crc >> 8) ^ data[i]) & 0xFF;
