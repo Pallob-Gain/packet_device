@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "BluetoothSerial.h"
 
+#include "../../src/CyclicRedundancyCheck.h"
+#include "../../src/CyclicRedundancyCheck.cpp"
 #include "../../src/Packet_Device.h"
 #include "../../src/Packet_Device.cpp"
 

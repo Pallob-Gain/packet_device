@@ -91,13 +91,14 @@ private:
   void dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *header = nullptr, uint8_t header_size = 0);
   void dataOutToSerial(String str);
 
+  inline void packetHandler(const uint8_t *data, uint16_t len);
+
   bool writer_lock();
   bool writer_unlock();
   bool receiver_lock();
   bool receiver_unlock();
 
   void setDelimeters(const uint8_t *del, size_t len);
-  bool processEachData(uint8_t inchar);
 
 public:
   template <uint8_t D>

@@ -239,106 +239,111 @@ void DevicePacketParser::commandProcess(const uint8_t *data, uint16_t len)
     }
 }
 
-bool DevicePacketParser::processEachData(uint8_t inchar)
+inline void DevicePacketParser::packetHandler(const uint8_t *data, uint16_t len)
 {
+    if (packet_receiver_cb != nullptr)
+        packet_receiver_cb(data, len);
+    else
+        commandProcess(data, len);
+}
 
-    // store data
-    this->receiver_lock();
-    buffer_[buffer_current_len] = inchar;
-    buffer_current_len++;
+void DevicePacketParser::processBytes(const uint8_t *all_bytes, size_t len)
+{
+    if (all_bytes == nullptr || len == 0)
+        return;
 
-    if (buffer_current_len >= buffer_size_)
+    size_t x = 0;
+    while (x < len)
     {
-        buffer_current_len = 0;
-    }
-    this->receiver_unlock();
-
-    if (packet_length != 0)
-    {
-        // packet receiving mode
-        if (buffer_current_len == packet_length)
+        if (packet_length != 0)
         {
-            // Serial.println("Data:"+String(cmd->data[0],HEX));
+            uint16_t remaining = packet_length > buffer_current_len ? (packet_length - buffer_current_len) : 0;
+            if (remaining == 0)
+            {
+                packet_length = 0;
+                packet_timeout_at = 0; // reset timeout
 
-            // data is ready to process with command process
+                this->receiver_lock();
+                packetHandler(buffer_.get(), buffer_current_len);
+                buffer_current_len = 0;
+                this->receiver_unlock();
+                continue;
+            }
 
-            // reset the packet receive
-            packet_length = 0;
-            // packet is ready for process
-            packet_timeout_at = 0; // reset timeout
+            size_t chunk = std::min((size_t)remaining, len - x);
 
             this->receiver_lock();
-
-            if (packet_receiver_cb != nullptr)
-                packet_receiver_cb(buffer_.get(), buffer_current_len);
-            else
-                commandProcess(buffer_.get(), buffer_current_len);
-            buffer_current_len = 0;
+            std::memcpy(buffer_.get() + buffer_current_len, all_bytes + x, chunk);
+            buffer_current_len += (uint16_t)chunk;
             this->receiver_unlock();
+
+            x += chunk;
+
+            if (buffer_current_len == packet_length)
+            {
+                packet_length = 0;
+                packet_timeout_at = 0; // reset timeout
+
+                this->receiver_lock();
+                packetHandler(buffer_.get(), buffer_current_len);
+                buffer_current_len = 0;
+                this->receiver_unlock();
+            }
+            continue;
         }
-    }
-    else
-    {
-        // non macket mode
+
+        // Store each byte first, then evaluate whether we have a full packet or delimited command.
+        this->receiver_lock();
+        buffer_[buffer_current_len] = all_bytes[x];
+        buffer_current_len++;
+        x++;
+
+        if (buffer_current_len >= buffer_size_)
+        {
+            buffer_current_len = 0;
+        }
+        this->receiver_unlock();
+
+        // Non-packet mode: detect packet signature and switch into packet receiving mode.
         if (buffer_current_len >= PACKET_SIGNETURE_LEN)
         {
             size_t offset = buffer_current_len - PACKET_SIGNETURE_LEN;
-
-            // Serial.println("offset:"+String(offset)+",len:"+String(cmd->len)+",l:"+String(PACKET_SIGNETURE_LEN));
             uint16_t packet_size = getPacketLength(buffer_.get() + offset);
 
             if (packet_size != 0)
             {
-                // valid match
                 this->receiver_lock();
                 buffer_current_len = 0; // reset buffer index for making ready to receive actual buffer
                 this->receiver_unlock();
 
                 if (packet_size < buffer_size_)
                 {
-                    // Serial.println("Received:"+String(packet_size)+",l:"+String(current_commands_length));
-                    // packet size is valid
-                    packet_length = packet_size; // update packet size
-                    // register current time to register timeout of receving data
+                    packet_length = packet_size;
+                    // minimum baud rate could 4800bps that mean 600bytes for second,
+                    // considering 2ms for each of byte, and some extra delay (100ms)
                     packet_timeout_at = millis() + (packet_size * 2) + 100;
-                    // minimum baud rate could 4800bps that mean 600bytes for second, considering 2ms for each of byte, and some extra delay (100ms)
                 }
 
-                return true; // no more process until next byte receive
+                continue;
             }
         }
+
         if (delimeter_len != 0 && buffer_current_len >= delimeter_len)
         {
             size_t offset = buffer_current_len - delimeter_len;
-            // if data match for deliemter
-            // if(std::equal(cmd->data+offset,cmd->data+cmd->len,delimeters)){
 
             if (memcmp(buffer_.get() + offset, delimeters, delimeter_len) == 0)
             {
                 this->receiver_lock();
-                // reset the packet receive
                 packet_length = 0;
-                buffer_current_len = offset; // orginal data length
+                buffer_current_len = offset; // original data length
 
-                if (packet_receiver_cb != nullptr)
-                    packet_receiver_cb(buffer_.get(), buffer_current_len);
-                else
-                    commandProcess(buffer_.get(), buffer_current_len);
+                packetHandler(buffer_.get(), buffer_current_len);
                 buffer_current_len = 0;
 
                 this->receiver_unlock();
             }
         }
-    }
-
-    return true;
-}
-
-void DevicePacketParser::processBytes(const uint8_t *all_bytes, size_t len)
-{
-    for (size_t x = 0; x < len; x++)
-    {
-        this->processEachData(all_bytes[x]); // if the queue full it return false
     }
 }
 
