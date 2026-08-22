@@ -25,7 +25,7 @@ module.exports = class DataEndPusherExtractor {
         this.only_buffer_mode = state;
     }
 
-    getPacketLength(transfer_buff) {
+    static getPacketLength(transfer_buff) {
         if (transfer_buff[0] != packet_info[0] || transfer_buff[PACKET_SIGNETURE_LEN - 1] != packet_info[PACKET_SIGNETURE_LEN - 1]) return 0;
 
         //console.log('Received packet:', transfer_buff);
@@ -49,7 +49,7 @@ module.exports = class DataEndPusherExtractor {
         return packet_size;
     }
 
-    updatePacketLength(packet_size) {
+    static updatePacketLength(packet_size) {
         let header = Buffer.alloc(PACKET_SIGNETURE_LEN);
         packet_info.copy(header);
 
@@ -63,7 +63,7 @@ module.exports = class DataEndPusherExtractor {
         return header;
     }
 
-    searchPacketMatch(transfer_buffer) {
+    static searchPacketMatch(transfer_buffer) {
         let search_offset = 0;
         while (transfer_buffer.length > search_offset) {
             let sfind = transfer_buffer.indexOf(packet_info[0], search_offset);
@@ -72,7 +72,7 @@ module.exports = class DataEndPusherExtractor {
 
             //console.log('transfer_buffer size:', transfer_buffer.length);
 
-            let packet_size = this.getPacketLength(transfer_buffer.subarray(sfind, search_offset));
+            let packet_size = DataEndPusherExtractor.getPacketLength(transfer_buffer.subarray(sfind, search_offset));
             if (packet_size !== 0) {
                 return [search_offset, packet_size];
             }
@@ -107,7 +107,7 @@ module.exports = class DataEndPusherExtractor {
             }
             else {
                 if ((this.store_buff.length - offset) >= PACKET_SIGNETURE_LEN) {
-                    let search_result = this.searchPacketMatch(this.store_buff.subarray(offset, this.store_buff.length));
+                    let search_result = DataEndPusherExtractor.searchPacketMatch(this.store_buff.subarray(offset, this.store_buff.length));
                     if (search_result !== null) {
                         let [packet_end, packet_size] = search_result;
 

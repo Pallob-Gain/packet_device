@@ -3,7 +3,7 @@ const { PacketDevice, Struct } = require('./lib/index.js');
 const { SerialPort } = require('serialport')
 
 
-const PORT = process.env.PORT?.trim() || 'COM31';
+const PORT = process.env.PORT?.trim() || 'COM36';
 const BUADRATE = 115200;
 
 console.log('Communication port:', PORT, 'Baudrate:', BUADRATE);
@@ -44,7 +44,7 @@ packet_device.onData((err, data) => {
 		}
 		else console.log('Received->', parsed_data);
 		//send multiple data securly
-		//packet_device.write(packet_device.dataPacket("sen",new Int32Array([1,2,34])));
+		//packet_device.write(PacketDevice.dataPacket("sen",new Int32Array([1,2,34])));
 	}
 	catch (err) {
 		console.log('Data parse error:', err);

@@ -373,7 +373,7 @@ module.exports = class PacketDevice {
     }
 
     writePacket(param, data) {
-        let packet = this.dataPacket(param, data, false);
+        let packet = PacketDevice.dataPacket(param, data);
         if (packet === null) throw new Error('Invalid data!');
         return this.write(packet);
     }
@@ -467,12 +467,12 @@ module.exports = class PacketDevice {
         return null;
     }
 
-    dataPacket(param, data, ending = false) {
+    static dataPacket(param, data, ending = null) {
         let buff = PacketDevice.bufferGenerate(param, data);
         if (buff === null) return null;
         let crc = PacketDevice.getDataCrc(buff);
 
-        if (ending) {
+        if (ending!==null) {
             //end with delimeter
             return Buffer.concat([
                 buff,
@@ -480,13 +480,13 @@ module.exports = class PacketDevice {
                     crc >> 8 & 0xFF,
                     crc & 0xFF,
                 ]),
-                Buffer.from(this.delimiter)
+                Buffer.from(ending)
             ]);
         }
         else {
             //transfer with buffer
             return Buffer.concat([
-                this.dataParser.updatePacketLength(buff.length + 2),
+                DataEndPusherExtractor.updatePacketLength(buff.length + 2),
                 buff,
                 Buffer.from([
                     crc >> 8 & 0xFF,
