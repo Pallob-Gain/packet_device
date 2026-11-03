@@ -43,15 +43,97 @@ This will also install the required `serialport` dependency.
 
 ## 🚀 Quick Start
 
-### 1. ESP32 UART Example
+### 1. Arduino Example (ESP32)
 
-The ESP32 UART example uses the ESP-IDF UART driver and event queue to receive packet bytes, then passes them to `DevicePacketParser`. It demonstrates command callbacks, raw structure/array reception, and transmitting arrays and structures. The complete sketch is available at [`examples/ESP32_Packet_UART/ESP32_Packet_UART.ino`](examples/ESP32_Packet_UART/ESP32_Packet_UART.ino).
+This Arduino `Stream` example sends structured data and responds to requests from a PC.
 
 ```cpp
+#include "Packet_Device.h"
+#include "BluetoothSerial.h"
+
+#define MAX_COMMAND_LEN 128
+typedef DevicePacket<char, MAX_COMMAND_LEN> PacketProtocol;
+
+PacketProtocol* device_packet = nullptr;
+
+TaskHandle_t systemReceivingTask = nullptr;
+
+#define SENSOR_NUMBERS 5
+
+float sensor_data[SENSOR_NUMBERS] = { 10.0, 20.0, 30.0, 40.0, 50.0 };
+
+// Data transfer definition between DSP and HOST
+struct LockInInfo {
+  float amplitude;
+  float phase;
+};
+
+// Callback: Update lock-in info
+void updateLockInfoX(LockInInfo* info) {
+  device_packet->restOut("amplitude", info->amplitude);
+}
+
+// Callback: Check version
+void checkVersion() {
+  device_packet->restOutStr("version", "Packet Device");
+}
+
+// Data receiving thread
+void systemReceivingProcess(void* parameter) {
+  while (true) {
+    // Read incoming commands
+    device_packet->readSerialCommand();
+    vTaskDelay(pdMS_TO_TICKS(20));  // 20 ms delay
+  }
+
+  // If loop breaks, clean up task
+  vTaskDelete(nullptr);
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  // Create PacketProtocol object with delimiters
+  device_packet = new PacketProtocol(&Serial, { '\r', '\n' });
+
+  // Register command callbacks
+  device_packet->onReceive("VNR", checkVersion);
+  device_packet->onReceive<LockInInfo>("ULX", updateLockInfoX); // Raw mode
+
+  // Create data processing thread
+  xTaskCreatePinnedToCore(
+    systemReceivingProcess,   // Task function
+    "recv",                   // Task name
+    10000,                    // Stack size in bytes
+    nullptr,                  // Task input parameter
+    2,                        // Priority
+    &systemReceivingTask,     // Task handle
+    0                         // Core ID
+  );
+}
+
+void loop() {
+  device_packet->processingQueueCommands();
+  device_packet->restArrayOut<float>("env", sensor_data, SENSOR_NUMBERS);
+  delay(500);
+}
+```
+
+### 2. ESP32 UART Parser Example (latest)
+
+This example uses the ESP-IDF UART driver and event queue to receive bytes, then passes them to `DevicePacketParser`. It demonstrates command callbacks, raw structure/array reception, and transmitting arrays and structures. The complete sketch is available at [`examples/ESP32_Packet_UART/ESP32_Packet_UART.ino`](examples/ESP32_Packet_UART/ESP32_Packet_UART.ino).
+
+```cpp
+#include <stdio.h>
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+
 #include "driver/uart.h"
+#include "driver/gpio.h"
+
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -64,15 +146,19 @@ The ESP32 UART example uses the ESP-IDF UART driver and event queue to receive p
 #define APP_UART_TX_PIN UART_PIN_NO_CHANGE
 #define APP_UART_RX_PIN UART_PIN_NO_CHANGE
 #define APP_UART_BAUD_RATE 115200
+
 #define APP_UART_RX_BUFFER_SIZE 2048
 #define APP_UART_TX_BUFFER_SIZE 2048
 #define APP_UART_EVENT_QUEUE_SIZE 20
+
 #define BUFFER_HOLDER_SIZE 2048
 #define APP_UART_READ_BUFFER_SIZE 512
 
 static const char *TAG = "UART_APP";
 static QueueHandle_t uart_event_queue = NULL;
+
 DevicePacketParser *device_packet = NULL;
+TaskHandle_t SystemReceivingTask = NULL;
 
 #define SENSOR_NUMBERS 5
 float sensor_data[SENSOR_NUMBERS] = { 10.0, 20.0, 30.0, 40.0, 50.0 };
@@ -118,18 +204,23 @@ void checkVersion() {
 }
 
 void uart_send_bytes(const uint8_t *data, uint16_t length) {
-  if (data == NULL || length == 0) return;
+  if (data == NULL || length == 0) {
+    return;
+  }
   uart_write_bytes(APP_UART_PORT, data, length);
 }
 
 void process_received_data(const uint8_t *data, uint16_t length) {
-  if (data == NULL || length == 0) return;
+  if (data == NULL || length == 0) {
+    return;
+  }
   device_packet->processBytes(data, length);
 }
 
 void uart_event_task(void *parameter) {
   uart_event_t event;
   uint8_t *rx_buffer = (uint8_t *) malloc(APP_UART_READ_BUFFER_SIZE);
+
   if (rx_buffer == NULL) {
     vTaskDelete(NULL);
     return;
@@ -143,6 +234,7 @@ void uart_event_task(void *parameter) {
     switch (event.type) {
       case UART_DATA: {
         size_t bytes_remaining = event.size;
+
         while (bytes_remaining > 0) {
           size_t read_length = bytes_remaining;
           if (read_length > APP_UART_READ_BUFFER_SIZE) {
@@ -154,7 +246,10 @@ void uart_event_task(void *parameter) {
             rx_buffer,
             read_length,
             pdMS_TO_TICKS(100));
-          if (bytes_read <= 0) break;
+
+          if (bytes_read <= 0) {
+            break;
+          }
 
           process_received_data(rx_buffer, bytes_read);
           bytes_remaining -= (size_t)bytes_read;
@@ -168,6 +263,10 @@ void uart_event_task(void *parameter) {
         xQueueReset(uart_event_queue);
         break;
 
+      case UART_BREAK:
+      case UART_PARITY_ERR:
+      case UART_FRAME_ERR:
+      case UART_PATTERN_DET:
       default:
         break;
     }
@@ -207,7 +306,7 @@ static esp_err_t uart_initialize(void) {
 }
 
 void setup() {
-  device_packet = new DevicePacketParser(BUFFER_HOLDER_SIZE, { '\\r', '\\n' });
+  device_packet = new DevicePacketParser(BUFFER_HOLDER_SIZE, { '\r', '\n' });
   device_packet->setStreamCaptureCallback(uart_send_bytes);
 
   device_packet->onReceive("VNR", checkVersion);
@@ -216,12 +315,26 @@ void setup() {
   device_packet->onReceive<Bio>("bio", updateBio);
 
   ESP_ERROR_CHECK(uart_initialize());
-  ESP_LOGI(TAG, "UART initialized: port=%d, TX=%d, RX=%d, baud=%d",
-           APP_UART_PORT, APP_UART_TX_PIN, APP_UART_RX_PIN, APP_UART_BAUD_RATE);
+
+  ESP_LOGI(
+    TAG,
+    "UART initialized: port=%d, TX=%d, RX=%d, baud=%d",
+    APP_UART_PORT,
+    APP_UART_TX_PIN,
+    APP_UART_RX_PIN,
+    APP_UART_BAUD_RATE);
 
   BaseType_t result = xTaskCreate(
-    uart_event_task, "uart_event_task", 4096, NULL, 10, NULL);
-  if (result != pdPASS) return;
+    uart_event_task,
+    "uart_event_task",
+    4096,
+    NULL,
+    10,
+    NULL);
+
+  if (result != pdPASS) {
+    return;
+  }
 }
 
 void loop() {
@@ -233,7 +346,7 @@ void loop() {
 
 ---
 
-### 2. Node.js Example (PC Side)
+### 3. Node.js Example (PC Side)
 
 This connects to the ESP32 via serial and sends/receives structured data.
 
@@ -301,10 +414,10 @@ packet_device.onData((err, data) => {
 | (commands, data handlers)  |
 +----------------------------+
 | Packet Device protocol     |
-| (framing, CRC, events)     |
+| (framing, CRC, events)      |
 +----------------------------+
 | Arduino Stream transport   |
-| (UART, SPI, I²C, etc.)     |
+| (UART, SPI, I²C, etc.)      |
 +----------------------------+
 ```
 
