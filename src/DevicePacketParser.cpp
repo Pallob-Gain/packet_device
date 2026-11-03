@@ -459,8 +459,8 @@ void DevicePacketParser::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
             return;
 
         if (header_size > 0)
-            dataOutToSerial(header, header_size);
-        dataOutToSerial(buff, size);
+            writeToPort(header, header_size);
+        writeToPort(buff, size);
 
         if (verify_crc)
         {
@@ -468,11 +468,11 @@ void DevicePacketParser::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
             if (delimeter_len > 0)
                 memcpy(end_bytes + CRC16_BYTE_LEN, delimeters, delimeter_len);
 
-            dataOutToSerial(end_bytes, CRC16_BYTE_LEN + delimeter_len);
+            writeToPort(end_bytes, CRC16_BYTE_LEN + delimeter_len);
         }
         else if (delimeter_len > 0)
         {
-            dataOutToSerial(delimeters, delimeter_len);
+            writeToPort(delimeters, delimeter_len);
         }
 
         this->writer_unlock();

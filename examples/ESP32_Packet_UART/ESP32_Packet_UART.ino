@@ -279,6 +279,9 @@ void setup() {
   device_packet = new DevicePacketParser(BUFFER_HOLDER_SIZE, { '\r', '\n' });  //delimeter passed (it only nessary for the non raw transfer, raw byte are transmit with packet info)
   device_packet->setStreamCaptureCallback(uart_send_bytes);
 
+  //to disable buffer mode for direct text streaming
+  //device_packet->setBufferMode(false);
+
   device_packet->onReceive("VNR", checkVersion);
   //set on receive function
   device_packet->onReceive<lockInInfo>("ULX", updateLockInfoX);  //raw mode
@@ -314,5 +317,5 @@ void setup() {
 void loop() {
   device_packet->restArrayOut<float>("env", sensor_data, SENSOR_NUMBERS);
   device_packet->restRawOut<MassiveData>("mdt", &testData);
-  delay(500);
+  delay(2500);
 }
