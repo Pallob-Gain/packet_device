@@ -1,0 +1,49 @@
+name: Rust library
+
+on:
+  push:
+    paths:
+      - "rust-lib/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "rust-lib/**"
+      - ".github/workflows/rust.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, Rust ${{ matrix.toolchain }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        toolchain: [stable, "1.82.0"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - run: cargo test --manifest-path rust-lib/Cargo.toml --locked
+
+  package:
+    name: Check and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --manifest-path rust-lib/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path rust-lib/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo doc --manifest-path rust-lib/Cargo.toml --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - run: cargo package --manifest-path rust-lib/Cargo.toml --locked --offline --target-dir target/rust-release
+      - name: Test the packaged crate
+        run: |
+          for manifest in target/rust-release/package/packet-device-*/Cargo.toml; do
+            cargo test --manifest-path "$manifest" --locked --offline
+          done

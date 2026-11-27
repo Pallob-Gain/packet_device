@@ -4,18 +4,26 @@
 
 The library receives byte slices, reconstructs packets across arbitrary read boundaries, checks CRCs, and dispatches command or typed-data handlers. A user-supplied callback writes outgoing bytes. UART, serial ports, USB, sockets, and other ordered byte transports can use the same parser.
 
-The selected porting scope is `DevicePacketParser`, its protocol constants, CRC functions, value conversion, and output helpers. The older Arduino `DevicePacket` stream/command-queue class and `ByteRingBuffer` are not part of this Rust library. See [the coverage and compatibility map](PARITY.md) for the public API correspondence and retained C++ behavior.
+The selected porting scope is `DevicePacketParser`, its protocol constants, CRC functions, value conversion, and output helpers. The older Arduino `DevicePacket` stream/command-queue class and `ByteRingBuffer` are not part of this Rust library. See [the coverage and compatibility map](https://github.com/Pallob-Gain/packet_device/blob/main/rust-lib/PARITY.md) for the public API correspondence and retained C++ behavior.
 
 ## Add the library
 
-Use Rust 1.82 or later for desktop builds. In another Cargo project, point the dependency to this directory:
+Use Rust 1.82 or later for desktop builds. Add the crate to your Cargo project:
+
+```sh
+cargo add packet-device
+```
+
+Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-packet-device = { path = "../packet_device/rust-lib" }
+packet-device = "0.1.0"
 ```
 
-Adjust the path for your project. The package name is `packet-device`; the Rust import name is `packet_device`.
+The package name is `packet-device`; the Rust import name is `packet_device`. See the [API documentation](https://docs.rs/packet-device), [source code](https://github.com/Pallob-Gain/packet_device/tree/main/rust-lib), and [changelog](https://github.com/Pallob-Gain/packet_device/blob/main/rust-lib/CHANGELOG.md).
+
+To develop against a local checkout, replace the version dependency with `packet-device = { path = "../packet_device/rust-lib" }`, adjusting the path for your project.
 
 This library uses `std` and allocation. It is not a `no_std` or allocation-free crate. Its ESP32 example uses ESP-IDF's `std` environment.
 
@@ -125,7 +133,7 @@ device.writer().rest_raw_out("ULX", &LockInInfo {
 
 If a C++ structure contains padding, encode the agreed padding bytes at the same offsets. For example, a `uint8_t` followed by an aligned `float` may need three padding bytes between the fields. `#[repr(C)]` alone does not initialize padding or make arbitrary incoming bytes safe to cast. The library contains no `unsafe` code and does not alias received bytes as a Rust object.
 
-The shared [example codecs](../examples/rust_common.rs) define `LockInInfo` (8 bytes), `Bio` (2 bytes), and `MassiveData` (900 bytes). A large structure can be sent as one raw value; array elements must fit the protocol's one-byte element-size field.
+The shared [example codecs](https://github.com/Pallob-Gain/packet_device/blob/main/examples/rust_common.rs) define `LockInInfo` (8 bytes), `Bio` (2 bytes), and `MassiveData` (900 bytes). A large structure can be sent as one raw value; array elements must fit the protocol's one-byte element-size field.
 
 Primitive `WireValue` implementations cover signed and unsigned 8/16/32/64-bit integers, `f32`, `f64`, `bool`, UTF-8 `String`, and raw `[u8; N]` values. Numeric payloads use little endian, floats use their IEEE byte representations, and booleans transmit one byte (`0` or `1`). Raw byte arrays use type ID `0`.
 
@@ -168,7 +176,7 @@ Low-level `codec` functions are public for applications that need direct framing
 
 ## Run the examples and checks
 
-Run these commands from the repository root:
+Clone the [repository](https://github.com/Pallob-Gain/packet_device) and run these commands from its root. Transport examples and reference-check tools are maintained in the repository and are not included in the crates.io package:
 
 ```powershell
 cargo test --manifest-path rust-lib/Cargo.toml
@@ -178,15 +186,15 @@ node rust-lib/tools/nodejs_oracle.cjs
 python rust-lib/tools/cpp_reference.py
 ```
 
-The reference commands verify committed packet fixtures against the existing local Node.js codec and the unchanged C++ parser. The C++ check requires Python and GNU C++17 and uses a temporary Arduino shim; see the [reference-check instructions](tools/README.md). Rust tests use the fixtures without those extra tools to check wire interoperability as well as fragmented input, CRC settings, callbacks, and malformed data. These are host checks; they do not by themselves verify a physical serial link or flashed ESP32 board.
+The reference commands verify committed packet fixtures against the existing local Node.js codec and the unchanged C++ parser. The C++ check requires Python and GNU C++17 and uses a temporary Arduino shim; see the [reference-check instructions](https://github.com/Pallob-Gain/packet_device/blob/main/rust-lib/tools/README.md). Rust tests and their fixtures are included in the package and run without those extra tools to check wire interoperability as well as fragmented input, CRC settings, callbacks, and malformed data. These are host checks; they do not by themselves verify a physical serial link or flashed ESP32 board.
 
-The [Windows PC example](../examples/Rust_Windows_PC/README.md) uses `COM36` at 115,200 baud by default and sends the same demonstration commands and structures as the existing Node.js example:
+The [Windows PC example](https://github.com/Pallob-Gain/packet_device/blob/main/examples/Rust_Windows_PC/README.md) uses `COM36` at 115,200 baud by default and sends the same demonstration commands and structures as the existing Node.js example:
 
 ```powershell
 cargo run --manifest-path examples/Rust_Windows_PC/Cargo.toml -- --list
 cargo run --manifest-path examples/Rust_Windows_PC/Cargo.toml -- --port COM36 --baud 115200 --duration 10
 ```
 
-The [ESP32-S3 example](../examples/Rust_ESP32/README.md) uses ESP-IDF `std`, provides UART0 and optional native USB Serial/JTAG transports, and responds to `VNR`, `ULX`, `counts`, and `bio`. It sends periodic `env` and `mdt` telemetry. Follow its toolchain, board, connector, build, and flash instructions before running the Windows peer. The two examples depend on this same library via Cargo path dependencies.
+The [ESP32-S3 example](https://github.com/Pallob-Gain/packet_device/blob/main/examples/Rust_ESP32/README.md) uses ESP-IDF `std`, provides UART0 and optional native USB Serial/JTAG transports, and responds to `VNR`, `ULX`, `counts`, and `bio`. It sends periodic `env` and `mdt` telemetry. Follow its toolchain, board, connector, build, and flash instructions before running the Windows peer. The two examples depend on this same library via Cargo path dependencies.
 
-License: [MIT](LICENSE).
+License: [MIT](https://github.com/Pallob-Gain/packet_device/blob/main/rust-lib/LICENSE).

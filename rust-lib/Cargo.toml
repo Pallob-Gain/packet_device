@@ -7,6 +7,20 @@ description = "Packet Device protocol and DevicePacketParser for desktop and ESP
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/Pallob-Gain/packet_device"
+documentation = "https://docs.rs/packet-device"
+keywords = ["protocol", "serial", "embedded", "esp32", "packet"]
+categories = ["embedded", "encoding", "network-programming"]
+publish = ["crates-io"]
+include = [
+    "/src/**",
+    "/tests/**",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/PARITY.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+]
 
 [dependencies]
 

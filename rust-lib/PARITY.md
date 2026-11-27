@@ -1,6 +1,6 @@
 # DevicePacketParser compatibility map
 
-This document maps the public C++ `DevicePacketParser` in [`src/DevicePacketParser.h`](../src/DevicePacketParser.h) and its implementations to the native Rust library. The port preserves valid packet bytes and the selected parser's command/output features while expressing ownership, typed values, and errors through Rust APIs.
+This document maps the public C++ `DevicePacketParser` in [`src/DevicePacketParser.h`](https://github.com/Pallob-Gain/packet_device/blob/main/src/DevicePacketParser.h) and its implementations to the native Rust library. The port preserves valid packet bytes and the selected parser's command/output features while expressing ownership, typed values, and errors through Rust APIs.
 
 The separate legacy `DevicePacket` Arduino stream/command queue and `ByteRingBuffer` are outside the selected scope. Their transport polling, queue processing, FreeRTOS mutex/event-group methods, and auto-flush methods are not claimed as Rust features. The Rust examples provide transport integration around `DevicePacketParser`.
 
@@ -131,4 +131,4 @@ The C++ `null_type` is an alias of `uint8_t` and selects ID 7 before its null br
 
 Run `cargo test --manifest-path rust-lib/Cargo.toml` from the repository root. The protocol and dispatch integration tests cover representative C++/Node.js packet formats, all primitive codecs, fragmented and concatenated input, the corrected array count encoding, both CRC settings and custom seeds, callback selection, response generation, and malformed/oversized input handling.
 
-`node rust-lib/tools/nodejs_oracle.cjs` independently checks the committed reference bytes against the existing local Node.js implementation. The explicit example structures are shared by the Windows and ESP32 programs. Host tests and a successful firmware build do not establish physical-device communication; a connected-board run is a separate validation step.
+`node rust-lib/tools/nodejs_oracle.cjs` independently checks the committed reference bytes against the existing local Node.js implementation. This command and the transport examples require a repository checkout; the crates.io package includes the Rust tests and fixtures but excludes the reference-check tools. See the [reference-check instructions](https://github.com/Pallob-Gain/packet_device/blob/main/rust-lib/tools/README.md). The explicit example structures are shared by the Windows and ESP32 programs. Host tests and a successful firmware build do not establish physical-device communication; a connected-board run is a separate validation step.
