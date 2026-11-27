@@ -1,4 +1,10 @@
 # Ignore Windows desktop configuration files
 **/desktop.ini
 
+# Rust build outputs (the desktop and firmware examples are independent crates).
+**/target/
+examples/Rust_ESP32/sdkconfig
+examples/Rust_ESP32/sdkconfig.old
+examples/Rust_ESP32/.embuild/
+
 #git rm --cached -r **/desktop.ini

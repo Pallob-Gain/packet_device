@@ -86,7 +86,7 @@ void DevicePacketParser::restArrayOut(String properties, T data[], uint16_t data
 
     uint16_t header_size = TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len;
     uint8_t type = getTypeID<T>();
-    uint8_t header[header_size] = {TRANSFER_DATA_BUFFER_SIG, BUFFER_ARRY_RESPNOSE, type, type_size, pram_len, (data_size >> 8) && 0xFF, data_size & 0xFF}; // buff_signeture(1 byte)+data_signeture(1 byte)+type(1 bytes)+type_size(1 bytes)+pram_len(1 bytes)+data_size(1 bytes)+prams_buff+data_buff
+    uint8_t header[header_size] = {TRANSFER_DATA_BUFFER_SIG, BUFFER_ARRY_RESPNOSE, type, type_size, pram_len, (data_size >> 8) & 0xFF, data_size & 0xFF}; // buff_signeture(1 byte)+data_signeture(1 byte)+type(1 bytes)+type_size(1 bytes)+pram_len(1 bytes)+data_size(1 bytes)+prams_buff+data_buff
     memcpy(header + TRANSFER_DATA_ARRAY_HEADER_LEN, (uint8_t *)properties.c_str(), pram_len);
 
     // memcpy(buff + (TRANSFER_DATA_ARRAY_HEADER_LEN + pram_len), (uint8_t *)data, data_len);
@@ -98,7 +98,7 @@ void DevicePacketParser::restArrayOut(String properties, T data[], uint16_t data
   {
     bool is_float_type = std::is_same<T, float>::value;
     String str = "[";
-    for (uint8_t i = 0; i < data_size; i++)
+    for (uint16_t i = 0; i < data_size; i++)
     {
       if (i != 0)
       {

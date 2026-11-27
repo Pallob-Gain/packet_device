@@ -1,0 +1,13 @@
+[package]
+name = "packet-device"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Packet Device protocol and DevicePacketParser for desktop and ESP-IDF Rust"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Pallob-Gain/packet_device"
+
+[dependencies]
+
+[workspace]

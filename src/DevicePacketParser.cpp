@@ -76,7 +76,7 @@ void DevicePacketParser::commandProcess(const uint8_t *data, uint16_t len)
     // Serial.println("Receive:" + String(len));
     // Serial.flush();
 
-    if (len >= 6 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
+    if ( len >= (verify_crc ? TRANSFER_DATA_TEXT_HEADER_LEN + 2 : TRANSFER_DATA_TEXT_HEADER_LEN) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
     {
         // TRANSFER_DATA_TEXT_HEADER_LEN+CRC_SIZE(2 bytes)=6
 
@@ -100,7 +100,7 @@ void DevicePacketParser::commandProcess(const uint8_t *data, uint16_t len)
             }
         }
     }
-    else if (len >= 8 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
+    else if (len >= (verify_crc ? TRANSFER_DATA_PARAMS_HEADER_LEN + 2 : TRANSFER_DATA_PARAMS_HEADER_LEN) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
     {
         // TRANSFER_DATA_PARAMS_HEADER_LEN+CRC_SIZE(2 bytes)=8
         //  Serial.println("Prams:"+String(len)+",type:"+String((uint8_t)data[4]));
@@ -142,7 +142,7 @@ void DevicePacketParser::commandProcess(const uint8_t *data, uint16_t len)
             }
         }
     }
-    else if (len >= 9 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
+    else if (len >= (verify_crc ? TRANSFER_DATA_ARRAY_HEADER_LEN + 2 : TRANSFER_DATA_ARRAY_HEADER_LEN) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
     {
         // TRANSFER_DATA_ARRAY_HEADER_LEN+CRC_SIZE(2 bytes)=9
         //  Serial.println("Array:"+String(len));
@@ -261,7 +261,6 @@ void DevicePacketParser::processBytes(const uint8_t *all_bytes, size_t len)
             if (remaining == 0)
             {
                 packet_length = 0;
-                packet_timeout_at = 0; // reset timeout
 
                 this->receiver_lock();
                 packetHandler(buffer_.get(), buffer_current_len);
@@ -282,7 +281,6 @@ void DevicePacketParser::processBytes(const uint8_t *all_bytes, size_t len)
             if (buffer_current_len == packet_length)
             {
                 packet_length = 0;
-                packet_timeout_at = 0; // reset timeout
 
                 this->receiver_lock();
                 packetHandler(buffer_.get(), buffer_current_len);
@@ -319,9 +317,6 @@ void DevicePacketParser::processBytes(const uint8_t *all_bytes, size_t len)
                 if (packet_size < buffer_size_)
                 {
                     packet_length = packet_size;
-                    // minimum baud rate could 4800bps that mean 600bytes for second,
-                    // considering 2ms for each of byte, and some extra delay (100ms)
-                    packet_timeout_at = millis() + (packet_size * 2) + 100;
                 }
 
                 continue;
@@ -424,7 +419,7 @@ void DevicePacketParser::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
 
     if (verify_crc)
     {
-        crc = header_size > 0 ? CyclicRedundancyCheck::calculateCRC16(header, header_size, initial_crc) : 0;
+        crc = CyclicRedundancyCheck::calculateCRC16(header, header_size, initial_crc);
         crc = CyclicRedundancyCheck::calculateCRC16(buff, size, crc);
     }
 

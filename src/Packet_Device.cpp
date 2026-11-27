@@ -68,7 +68,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
   // Serial.println("Receive:" + String(len));
   // Serial.flush();
 
-  if (len >= 6 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
+  if (len >= (TRANSFER_DATA_TEXT_HEADER_LEN + 2) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_TEXT_RESPNOSE)
   {
     // TRANSFER_DATA_TEXT_HEADER_LEN+CRC_SIZE(2 bytes)=6
     // with crc
@@ -89,7 +89,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
       }
     }
   }
-  else if (len >= 8 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
+  else if (len >= (TRANSFER_DATA_PARAMS_HEADER_LEN + 2) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_PARAM_RESPNOSE)
   {
     // TRANSFER_DATA_PARAMS_HEADER_LEN+CRC_SIZE(2 bytes)=8
     //  Serial.println("Prams:"+String(len)+",type:"+String((uint8_t)data[4]));
@@ -127,7 +127,7 @@ void DevicePacket<R, N>::commandProcess(R *data, uint16_t len)
       }
     }
   }
-  else if (len >= 9 && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
+  else if (len >= (TRANSFER_DATA_ARRAY_HEADER_LEN + 2) && data[0] == TRANSFER_DATA_BUFFER_SIG && data[1] == BUFFER_ARRY_RESPNOSE)
   {
     // TRANSFER_DATA_ARRAY_HEADER_LEN+CRC_SIZE(2 bytes)=9
     //  Serial.println("Array:"+String(len));
@@ -546,7 +546,7 @@ void DevicePacket<R, N>::dataOutToSerial(uint8_t *buff, uint16_t size, uint8_t *
   if (serial_dev == nullptr && size == 0)
     return;
 
-  uint16_t crc = header_size > 0 ? getCRC<uint8_t>(header, header_size) : 0;
+  uint16_t crc = getCRC<uint8_t>(header, header_size);
   crc = getCRC<uint8_t>(buff, size, crc);
 
   if (response_buffer_mode)

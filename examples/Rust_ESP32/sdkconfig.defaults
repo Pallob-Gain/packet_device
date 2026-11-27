@@ -1,0 +1,9 @@
+# Both supported transports carry packets; application logging must not use them.
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
+CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT=y
+# Packet encoding and the 900-byte demo structure need more than the default stack.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+CONFIG_FREERTOS_HZ=1000

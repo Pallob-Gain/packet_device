@@ -1,0 +1,33 @@
+[package]
+name = "packet-device-esp32"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+resolver = "2"
+
+[[bin]]
+name = "packet-device-esp32"
+harness = false
+
+[features]
+default = []
+# Select the ESP32-S3 native USB Serial/JTAG connector instead of UART0.
+usb-serial-jtag = []
+
+[dependencies]
+packet-device = { path = "../../rust-lib" }
+esp-idf-hal = "=0.47.0"
+esp-idf-sys = { version = "=0.38.1", features = ["binstart"] }
+
+[build-dependencies]
+embuild = { version = "=0.33.5", features = ["espidf"] }
+
+[profile.dev]
+opt-level = "z"
+debug = true
+
+[profile.release]
+opt-level = "s"
+
+[workspace]

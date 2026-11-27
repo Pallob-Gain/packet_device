@@ -10,9 +10,15 @@ It uses a simple, event-driven architecture to send and receive structured binar
 
 - Communicate with Arduino/ESP32 over **serial** using the Packet Device protocol
 - Send/receive **typed structures** (int, float, arrays, etc.)
-- CRC-16 (CCITT-FALSE) data integrity
+- CRC-16 data integrity (polynomial `0x1021`, initial value `0x0000`)
 - Event-based data reception
 - Works with any device implementing the Arduino Packet Device library
+
+### CRC compatibility
+
+The Node.js implementation uses the same CRC settings as the C++ library: polynomial `0x1021`, initial value `0x0000`, no reflection, and no final XOR. CRC bytes are transmitted most significant byte first; the ASCII bytes `123456789` produce CRC `0x31C3`.
+
+The `0x0000` seed is intentional for compatibility with existing Packet Device peers. CRC-16/CCITT-FALSE uses `0xFFFF` instead, so selecting that preset without changing its initial value will produce incompatible CRCs.
 
 ---
 

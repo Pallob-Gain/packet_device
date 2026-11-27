@@ -1,0 +1,11 @@
+[package]
+name = "packet-device-windows"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+packet-device = { path = "../../rust-lib" }
+serialport = "=4.10.1"
+
+[workspace]

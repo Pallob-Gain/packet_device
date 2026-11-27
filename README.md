@@ -14,12 +14,18 @@ It also includes a **Node.js integration**, making it possible to connect an Ard
 ## ✨ Features
 
 - Works over **any** `Stream` transport: UART, SPI, I²C/Wire, BluetoothSerial, etc.
-- Secure **packetized** byte-level communication with CRC-16 (CCITT-FALSE)
+- Secure **packetized** byte-level communication with CRC-16 (polynomial `0x1021`, initial value `0x0000`)
 - **Event-driven** architecture for handling incoming data
 - Directly map incoming data to **memory pointers**
 - Send/receive **arrays, pointers, or raw structures**
 - Handles both **command/control** and **bulk data transfer**
 - Cross-platform — works with **Arduino** and **Node.js**
+
+### CRC compatibility
+
+Packet Device uses a non-reflected CRC-16 with polynomial `0x1021`, initial value `0x0000`, and no final XOR. The two CRC bytes are transmitted most significant byte first. For example, the ASCII bytes `123456789` produce CRC `0x31C3`.
+
+The `0x0000` seed is an intentional compatibility choice shared by the C++ and Node.js implementations. It differs from CRC-16/CCITT-FALSE, which uses an initial value of `0xFFFF`. Keep the `0x0000` default when communicating with existing Packet Device peers; changing the seed on only one side causes CRC verification to fail.
 
 ---
 
@@ -402,6 +408,26 @@ packet_device.onData((err, data) => {
   });
 })();
 ```
+
+---
+
+## Rust library and examples
+
+The native Rust implementation of `DevicePacketParser` is in [`rust-lib`](rust-lib/README.md). It uses Rust `std`, has no external library dependencies, and preserves the Packet Device wire format for communication with the C++ and Node.js implementations. The [API parity guide](rust-lib/PARITY.md) maps the C++ methods to Rust and records compatibility limits.
+
+Two applications use the same Rust library:
+
+- [Windows PC client](examples/Rust_Windows_PC/README.md): serial communication, defaulting to COM36 at 115200 baud.
+- [ESP32-S3 firmware](examples/Rust_ESP32/README.md): ESP-IDF with Rust `std`, UART command handlers, and periodic array/structure telemetry.
+
+From the repository root:
+
+```powershell
+cargo test --manifest-path rust-lib/Cargo.toml
+cargo run --manifest-path examples/Rust_Windows_PC/Cargo.toml -- --port COM36 --duration 15
+```
+
+The firmware has its own Xtensa toolchain and build instructions in its README. The existing Arduino `src` implementation remains independent of the Rust library.
 
 ---
 

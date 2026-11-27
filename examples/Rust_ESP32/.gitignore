@@ -1,0 +1,6 @@
+/target/
+/.embuild/
+/sdkconfig
+/sdkconfig.old
+/sdkconfig.debug
+/sdkconfig.release
